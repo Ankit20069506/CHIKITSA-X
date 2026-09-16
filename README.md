@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # CHIKITSAX — AI-Powered Patient Intelligence, Care Navigation & Financial Assistance Platform
 
 > **Tagline:** *"From Symptoms to Care, From Care to Financial Support."*  
@@ -195,3 +196,6 @@ Follow this sequence to present the complete connected prototype to SIH judges:
 13. **Emergency Pathway:** Click the red **"EMERGENCY HELP"** button anywhere to demonstrate instant emergency facility routing.
 
 ---
+=======
+# CHIKITSA-X
+>>>>>>> 7fcc04c8e170939b963a45f1ef2db6b21bfcec3c
