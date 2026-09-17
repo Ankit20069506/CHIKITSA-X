@@ -1,330 +1,199 @@
 export type UserRole = 'PATIENT' | 'DOCTOR' | 'HOSPITAL_ADMIN';
+export type AppLanguage = 'EN' | 'HI';
 
 export interface User {
   id: string;
-  email: string;
   name: string;
-  role: UserRole;
-  avatar?: string;
-  phone?: string;
-  hospitalId?: string; // For HOSPITAL_ADMIN or DOCTOR
-}
-
-export interface PatientProfile {
-  id: string;
-  userId: string;
-  fullName: string;
-  age: number;
-  gender: string;
-  bloodGroup: string;
-  phone: string;
   email: string;
+  role: UserRole;
+  phone: string;
+  hospitalId?: string;
+  abhaAddress?: string;
+}
+
+export interface ABHAProfile {
+  abhaNumber: string; // 14-digit format "14-2026-9812-4401"
+  abhaAddress: string; // e.g. "ankit.patel@abdm"
+  fullName: string;
+  dob: string;
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
+  bloodGroup: string;
+  mobile: string;
   address: string;
-  city: string;
-  pincode: string;
-  emergencyContact: {
-    name: string;
-    relationship: string;
-    phone: string;
-  };
+  kycVerified: boolean;
+  linkedFacilitiesCount: number;
+  qrPayload: string;
+}
+
+export interface FHIRRecord {
+  id: string;
+  resourceType: 'DiagnosticReport' | 'MedicationRequest' | 'Condition' | 'DischargeSummary';
+  date: string;
+  facility: string;
+  doctor: string;
+  title: string;
+  summary: string;
+  rawJsonUrl?: string;
+}
+
+export interface BodySymptom {
+  partId: 'head' | 'neck' | 'chest' | 'abdomen' | 'spine' | 'arms' | 'legs' | 'general';
+  partName: string;
+  hindiName: string;
   symptoms: string[];
-  medicalHistory: string[];
-  medications: string[];
-  allergies: string[];
-  vitalSigns?: {
-    bp?: string;
-    pulse?: string;
-    spo2?: string;
-    temp?: string;
-  };
-  careStage: number; // 1 to 12
-  financialBudgetPreference: 'LOW' | 'MEDIUM' | 'HIGH';
-  hasInsurance: boolean;
-  insuranceProvider?: string;
-  policyNumber?: string;
-  hasGovernmentCard: boolean;
-  rationCardType?: 'AAY' | 'BPL' | 'APL';
-  incomeCategory?: string;
-}
-
-export interface SymptomIntake {
-  id: string;
-  patientId: string;
-  timestamp: string;
-  rawTranscript: string;
-  extractedSymptoms: string[];
+  severity: number; // 1 - 10
   duration: string;
-  severity: 'Mild' | 'Moderate' | 'Severe' | 'Critical';
-  affectedBodyPart?: string;
-  triggerEvent?: string;
-  isEmergencyAlert: boolean;
+  notes?: string;
 }
 
-export interface MedicalRecord {
-  id: string;
-  patientId: string;
-  fileName: string;
-  fileType: 'PDF' | 'JPG' | 'PNG';
-  category: 'Prescription' | 'Lab Report' | 'Discharge Summary' | 'Radiology Report' | 'Other';
-  uploadDate: string;
-  ocrExtractedData: {
-    previousCondition?: string;
-    medicinesExtracted?: string[];
-    labResults?: { testName: string; value: string; unit: string; range: string }[];
-    allergiesExtracted?: string[];
-    diagnosisExtracted?: string;
-    doctorName?: string;
-    hospitalName?: string;
-  };
-  isVerifiedByPatient: boolean;
-}
-
-export interface TriageResult {
-  id: string;
-  patientId: string;
-  timestamp: string;
-  riskLevel: 'LOW' | 'MODERATE' | 'HIGH';
-  urgency: 'Routine Consultation' | 'Prompt Consultation (24h)' | 'Urgent Evaluation (Immediate)';
-  symptomsConsidered: string[];
-  clinicalReasoning: string[];
+export interface TriageDifferential {
+  conditionName: string;
+  hindiName: string;
+  icd10: string;
+  probability: 'HIGH' | 'MODERATE' | 'LOW';
+  urgency: 'EMERGENCY' | 'URGENT_OPD' | 'ROUTINE_CONSULT';
+  reasoning: string;
   recommendedSpecialty: string;
-  recommendedNextStep: string;
-  isEmergencyTriggered: boolean;
+  redFlags: string[];
+}
+
+export interface DrugInteractionWarning {
+  drugA: string;
+  drugB: string;
+  severity: 'HIGH' | 'MODERATE' | 'MILD';
+  description: string;
+  actionRequired: string;
+}
+
+export interface LabBiomarker {
+  name: string;
+  hindiName: string;
+  value: number;
+  unit: string;
+  normalRange: [number, number];
+  status: 'LOW' | 'NORMAL' | 'ELEVATED' | 'CRITICAL_HIGH';
+  interpretation: string;
+  hindiInterpretation: string;
+}
+
+export interface GenericDrugMapping {
+  id: string;
+  brandedName: string;
+  genericMolecule: string;
+  dosage: string;
+  brandedPrice: number;
+  janAushadhiPrice: number;
+  savingsPercentage: number;
+  category: string;
+}
+
+export interface HospitalBedTelemetry {
+  icuTotal: number;
+  icuAvailable: number;
+  ventilatorTotal: number;
+  ventilatorAvailable: number;
+  oxygenBedsTotal: number;
+  oxygenBedsAvailable: number;
+  generalBedsTotal: number;
+  generalBedsAvailable: number;
+  lastTelemetryPing: string;
+}
+
+export interface BloodGroupStock {
+  group: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+  units: number;
+  isCriticallyLow: boolean;
 }
 
 export interface Hospital {
   id: string;
   name: string;
-  code: string;
-  tagline: string;
-  address: string;
   city: string;
+  state: string;
+  type: 'GOVERNMENT' | 'PRIVATE_EMPANELLED' | 'CHARITABLE_TRUST';
   distanceKm: number;
-  phone: string;
-  emergencyPhone: string;
   rating: number;
-  reviewCount: number;
-  emergencyAvailable: boolean;
-  emergencyBedsFree: number;
-  icuBedsFree: number;
-  specialties: string[];
-  clinicalFitScore: number; // 0 to 100
-  affordabilityScore: number; // 0 to 100
-  availabilityScore: number; // 0 to 100
-  supportServicesScore: number; // 0 to 100
-  chikitsaxCareScore: number; // Calculated total
-  care_score?: number;
-  score_breakdown?: Record<string, number>;
-  estimatedCostRange: {
-    min: number;
-    max: number;
-  };
-  acceptedInsuranceProviders: string[];
+  chikitsaCareScore: number;
   acceptedGovSchemes: string[];
-  ngoPartnerships: string[];
-  accreditation: string[];
-  opdSlotAvailability: 'HIGH' | 'MEDIUM' | 'LOW';
-  image: string;
-  whyRecommended: {
-    specialtyMatch: string;
-    costFeasibility: string;
-    proximityReason: string;
-    availabilityReason: string;
-    financialSupportReason: string;
-  };
+  bedTelemetry: HospitalBedTelemetry;
+  bloodBankStock: BloodGroupStock[];
+  opdDepartments: string[];
+  emergency24x7: boolean;
+  contactNumber: string;
+  mapsCoord: { lat: number; lng: number };
 }
 
-export interface Doctor {
+export interface LiveOPDToken {
   id: string;
-  hospitalId: string;
-  hospitalName: string;
-  name: string;
-  specialty: string;
-  qualification: string;
-  experienceYears: number;
-  rating: number;
-  consultationFee: number;
-  availableDays: string[];
-  availableSlots: string[];
-  avatar: string;
-}
-
-export interface OPDRegistration {
-  id: string;
-  referenceId: string; // CHX-2026-XXXXXX
+  referenceId: string;
   patientId: string;
   patientName: string;
-  patientPhone: string;
   hospitalId: string;
   hospitalName: string;
   department: string;
-  doctorId: string;
   doctorName: string;
   appointmentDate: string;
-  appointmentTime: string;
-  consultationFee: number;
-  status: 'CONFIRMED' | 'VERIFIED' | 'COMPLETED' | 'CANCELLED';
-  createdAt: string;
-  qrToken: string;
+  appointmentSlot: string;
+  tokenNumber: number;
+  currentServingToken: number;
+  estimatedWaitMinutes: number;
+  status: 'WAITING' | 'SERVING' | 'COMPLETED' | 'CANCELLED';
+  qrVerifiedAt?: string;
+  doctorDelayNotes?: string;
 }
 
-export interface QRPassToken {
-  id: string;
-  referenceId: string;
-  token: string;
-  patientId: string;
-  hospitalId: string;
-  expiresAt: string;
-  isVerified: boolean;
-  verifiedAt?: string;
-  verifiedByStaff?: string;
-}
-
-export interface PatientConsent {
-  id: string;
-  patientId: string;
-  hospitalId: string;
-  hospitalName: string;
-  doctorId?: string;
-  doctorName?: string;
-  requestedAt: string;
-  grantedAt?: string;
-  status: 'PENDING' | 'GRANTED' | 'REVOKED';
-  accessibleSections: ('PROFILE' | 'SYMPTOMS' | 'OCR_RECORDS' | 'TRIAGE')[];
-}
-
-export interface Consultation {
-  id: string;
-  appointmentId: string;
-  referenceId: string;
-  patientId: string;
-  patientName: string;
-  doctorId: string;
-  doctorName: string;
-  hospitalId: string;
-  timestamp: string;
-  clinicalNotes: string;
-  diagnosis: string;
-  investigationsOrdered: string[];
-  prescriptionMedicines: { name: string; dosage: string; duration: string }[];
-  treatmentPlan: string;
-  treatmentCostEstimateId?: string;
-  status: 'IN_PROGRESS' | 'COMPLETED';
-}
-
-export interface TreatmentCostEstimate {
-  id: string;
-  consultationId?: string;
-  patientId: string;
-  hospitalId: string;
-  hospitalName: string;
+export interface CareCostAssessment {
   procedureName: string;
-  roomCategory: string;
-  estimatedCostRange: {
-    min: number;
-    max: number;
-  };
-  breakdown: {
-    procedureCost: number;
-    roomCharges: number;
-    investigationCost: number;
-    medicationCost: number;
-    otherCharges: number;
-  };
-  confidenceLevel: 'HIGH' | 'MEDIUM' | 'INDICATIVE';
-  createdAt: string;
+  indicativeGrossCost: number;
+  pmjaySubsidy: number;
+  stateSchemeSubsidy: number;
+  privateInsuranceClaim: number;
+  ngoCharitableGrant: number;
+  patientSelfPay: number;
+  netFinancialGap: number;
+  isCompletelyCashless: boolean;
 }
 
-export interface InsurancePolicy {
+export interface MedicalEMIOption {
+  months: number;
+  monthlyAmount: number;
+  interestRate: number; // 0%
+  processingFee: number;
+  totalRepayment: number;
+  isZeroInterest: boolean;
+}
+
+export interface CrowdfundingCampaign {
   id: string;
-  patientId: string;
-  providerName: string;
-  policyNumber: string;
-  sumInsured: number;
-  availableBalance: number;
-  coPayPercentage: number;
-  isCashlessAvailable: boolean;
-  status: 'ACTIVE' | 'EXPIRED' | 'CLAIM_PENDING';
-}
-
-export interface InsuranceClaim {
-  id: string;
-  patientId: string;
-  policyId: string;
-  treatmentCostEstimateId: string;
-  claimedAmount: number;
-  approvedAmount?: number;
-  status: 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
-  submittedAt: string;
-  claimReferenceNumber: string;
-}
-
-export interface GovernmentScheme {
-  id: string;
-  schemeCode: string;
-  schemeName: string;
-  description: string;
-  maxBenefitAmount: number;
-  eligibilityCriteria: {
-    rationCardTypes: string[];
-    maxAnnualIncome: number;
-    coveredIllnesses: string[];
-  };
-  requiredDocuments: string[];
-  contactHelpline: string;
-}
-
-export interface SchemeEligibilityResult {
-  schemeId: string;
-  schemeName: string;
-  isEligible: boolean;
-  matchingCriteria: string[];
-  potentialSupportAmount: number;
-  applicationStatus: 'NOT_APPLIED' | 'APPLIED' | 'VERIFIED' | 'APPROVED';
-}
-
-export interface NGOSupport {
-  id: string;
-  organizationName: string;
-  supportType: string;
-  maxAssistanceAmount: number;
-  eligibilityDescription: string;
-  requiredDocuments: string[];
-  applicationStatus: 'AVAILABLE' | 'APPLIED' | 'APPROVED';
-}
-
-export interface CareToCostAssessment {
-  id: string;
-  patientId: string;
+  patientName: string;
+  diagnosis: string;
   hospitalName: string;
-  estimatedTreatmentCost: number;
-  insuranceCoverage: number;
-  governmentSupport: number;
-  ngoAssistance: number;
-  patientSelfContribution: number;
-  financialGap: number;
-  isFundingComplete: boolean;
-  calculatedAt: string;
+  targetAmount: number;
+  raisedAmount: number;
+  donorCount: number;
+  story: string;
+  verifiedDoctorLetterUrl: string;
+  qrDonationLink: string;
+  daysRemaining: number;
 }
 
-export interface FinanceScenario {
+export interface SOAPClinicalNote {
   id: string;
-  scenarioTitle: string;
+  patientId: string;
+  doctorName: string;
   hospitalName: string;
-  estimatedCost: number;
-  insuranceBenefit: number;
-  governmentBenefit: number;
-  ngoBenefit: number;
-  patientOutofPocket: number;
-  remainingGap: number;
-  recommendationTag: string;
-}
-
-export interface AuditLog {
-  id: string;
-  timestamp: string;
-  actorRole: UserRole;
-  actorId: string;
-  action: string;
-  details: string;
+  date: string;
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+  prescriptions: Array<{
+    medicine: string;
+    dosage: string;
+    frequency: string;
+    duration: string;
+    genericAlternative?: string;
+  }>;
+  digitalSignature: string;
+  verifiedByQR: string;
 }

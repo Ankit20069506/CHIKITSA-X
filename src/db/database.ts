@@ -1,424 +1,565 @@
 import type {
   User,
-  PatientProfile,
+  ABHAProfile,
+  FHIRRecord,
   Hospital,
-  Doctor,
-  SymptomIntake,
-  MedicalRecord,
-  TriageResult,
-  OPDRegistration,
-  QRPassToken,
-  PatientConsent,
-  Consultation,
-  TreatmentCostEstimate,
-  InsurancePolicy,
-  InsuranceClaim,
-  GovernmentScheme,
-  NGOSupport,
-  CareToCostAssessment,
-  AuditLog
+  LiveOPDToken,
+  GenericDrugMapping,
+  LabBiomarker,
+  CareCostAssessment,
+  MedicalEMIOption,
+  CrowdfundingCampaign,
+  SOAPClinicalNote
 } from '../types';
-import {
-  DEMO_USERS,
-  INITIAL_PATIENT_PROFILE,
-  SEED_HOSPITALS,
-  SEED_DOCTORS,
-  SEED_OPD_REGISTRATIONS,
-  SEED_INSURANCE_POLICIES,
-  SEED_GOV_SCHEMES,
-  SEED_NGO_SUPPORT
-} from './seedData';
 
-const STORAGE_KEYS = {
-  CURRENT_USER: 'chikitsax_current_user',
-  PATIENT_PROFILE: 'chikitsax_patient_profile',
-  SYMPTOM_INTAKES: 'chikitsax_symptom_intakes',
-  MEDICAL_RECORDS: 'chikitsax_medical_records',
-  TRIAGE_RESULTS: 'chikitsax_triage_results',
-  HOSPITALS: 'chikitsax_hospitals',
-  DOCTORS: 'chikitsax_doctors',
-  OPD_REGISTRATIONS: 'chikitsax_opd_registrations',
-  QR_TOKENS: 'chikitsax_qr_tokens',
-  CONSENTS: 'chikitsax_consents',
-  CONSULTATIONS: 'chikitsax_consultations',
-  COST_ESTIMATES: 'chikitsax_cost_estimates',
-  INSURANCE_POLICIES: 'chikitsax_insurance_policies',
-  INSURANCE_CLAIMS: 'chikitsax_insurance_claims',
-  GOV_SCHEMES: 'chikitsax_gov_schemes',
-  NGO_SUPPORT: 'chikitsax_ngo_support',
-  FINANCE_ASSESSMENTS: 'chikitsax_finance_assessments',
-  AUDIT_LOGS: 'chikitsax_audit_logs'
-};
+class ChikitsaDatabase {
+  private currentUser: User = {
+    id: 'USR-PAT-2026-01',
+    name: 'Ankit Patel',
+    email: 'patient@chikitsax.demo',
+    role: 'PATIENT',
+    phone: '+91 98201 54821',
+    abhaAddress: 'ankit.patel@abdm'
+  };
 
-class LocalDB {
-  private getStorage<T>(key: string, defaultVal: T): T {
-    try {
-      const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : defaultVal;
-    } catch {
-      return defaultVal;
+  private demoUsers: User[] = [
+    {
+      id: 'USR-PAT-2026-01',
+      name: 'Ankit Patel',
+      email: 'patient@chikitsax.demo',
+      role: 'PATIENT',
+      phone: '+91 98201 54821',
+      abhaAddress: 'ankit.patel@abdm'
+    },
+    {
+      id: 'USR-DOC-2026-02',
+      name: 'Dr. Rajesh Kulkarni',
+      email: 'doctor@chikitsax.demo',
+      role: 'DOCTOR',
+      phone: '+91 98220 11928',
+      hospitalId: 'HOSP-01'
+    },
+    {
+      id: 'USR-ADM-2026-03',
+      name: 'Priya Sharma (Hospital Admin)',
+      email: 'hospital@chikitsax.demo',
+      role: 'HOSPITAL_ADMIN',
+      phone: '+91 99304 88712',
+      hospitalId: 'HOSP-01'
     }
-  }
+  ];
 
-  private setStorage<T>(key: string, val: T): void {
-    try {
-      localStorage.setItem(key, JSON.stringify(val));
-    } catch (e) {
-      console.error('Storage save error:', e);
+  private abhaProfile: ABHAProfile = {
+    abhaNumber: '14-2026-9812-4401',
+    abhaAddress: 'ankit.patel@abdm',
+    fullName: 'Ankit Patel',
+    dob: '1995-08-14',
+    gender: 'MALE',
+    bloodGroup: 'O+',
+    mobile: '+91 98201 54821',
+    address: 'Flat 402, Shivam Enclave, Baner Road, Pune, Maharashtra - 411045',
+    kycVerified: true,
+    linkedFacilitiesCount: 4,
+    qrPayload: 'https://healthid.ndhm.gov.in/verify?abha=14-2026-9812-4401'
+  };
+
+  private fhirRecords: FHIRRecord[] = [
+    {
+      id: 'FHIR-REC-001',
+      resourceType: 'DiagnosticReport',
+      date: '2026-02-18',
+      facility: 'Ruby Hall Clinic, Pune',
+      doctor: 'Dr. S. Mehta (Pathologist)',
+      title: 'Complete Blood Count (CBC) & HbA1c Panel',
+      summary: 'Hb: 13.8 g/dL, Platelets: 210,000 /mcL, HbA1c: 6.8% (Borderline pre-diabetic)',
+      rawJsonUrl: 'https://abdm.gov.in/fhir/r4/DiagnosticReport/FHIR-REC-001'
+    },
+    {
+      id: 'FHIR-REC-002',
+      resourceType: 'MedicationRequest',
+      date: '2026-01-10',
+      facility: 'CarePlus Multi-Specialty Hospital',
+      doctor: 'Dr. Rajesh Kulkarni (Cardiologist)',
+      title: 'Hypertension & Lipid Management Rx',
+      summary: 'Telmisartan 40mg (OD), Atorvastatin 10mg (HS). No active contraindications noted.',
+      rawJsonUrl: 'https://abdm.gov.in/fhir/r4/MedicationRequest/FHIR-REC-002'
+    },
+    {
+      id: 'FHIR-REC-003',
+      resourceType: 'DischargeSummary',
+      date: '2025-11-22',
+      facility: 'KEM Hospital, Mumbai',
+      doctor: 'Dr. A. Deshmukh',
+      title: 'Elective Laparoscopic Appendectomy',
+      summary: 'Uneventful post-operative recovery. Healed primary intention. Cleared for normal exertion.',
+      rawJsonUrl: 'https://abdm.gov.in/fhir/r4/DischargeSummary/FHIR-REC-003'
     }
-  }
+  ];
 
-  constructor() {
-    this.init();
-  }
-
-  public init() {
-    if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-      this.setStorage(STORAGE_KEYS.CURRENT_USER, DEMO_USERS[0]);
+  private hospitals: Hospital[] = [
+    {
+      id: 'HOSP-01',
+      name: 'CarePlus Tertiary Heart & Multi-Specialty Hospital',
+      city: 'Pune',
+      state: 'Maharashtra',
+      type: 'PRIVATE_EMPANELLED',
+      distanceKm: 3.4,
+      rating: 4.8,
+      chikitsaCareScore: 94,
+      acceptedGovSchemes: ['Ayushman Bharat PM-JAY', 'MJPJAY Maharashtra', 'Tata Trusts Empanelled', 'CGHS'],
+      emergency24x7: true,
+      contactNumber: '+91 20 6609 9000',
+      mapsCoord: { lat: 18.5204, lng: 73.8567 },
+      opdDepartments: ['Cardiology', 'Orthopedics', 'General Medicine', 'Neurology', 'Pulmonology'],
+      bedTelemetry: {
+        icuTotal: 32,
+        icuAvailable: 7,
+        ventilatorTotal: 18,
+        ventilatorAvailable: 4,
+        oxygenBedsTotal: 65,
+        oxygenBedsAvailable: 19,
+        generalBedsTotal: 180,
+        generalBedsAvailable: 42,
+        lastTelemetryPing: 'Just now'
+      },
+      bloodBankStock: [
+        { group: 'A+', units: 28, isCriticallyLow: false },
+        { group: 'A-', units: 6, isCriticallyLow: false },
+        { group: 'B+', units: 35, isCriticallyLow: false },
+        { group: 'B-', units: 4, isCriticallyLow: true },
+        { group: 'AB+', units: 14, isCriticallyLow: false },
+        { group: 'AB-', units: 2, isCriticallyLow: true },
+        { group: 'O+', units: 42, isCriticallyLow: false },
+        { group: 'O-', units: 3, isCriticallyLow: true }
+      ]
+    },
+    {
+      id: 'HOSP-02',
+      name: 'AIIMS Apex Regional Institute of Medical Sciences',
+      city: 'Pune / Mumbai Region',
+      state: 'Maharashtra',
+      type: 'GOVERNMENT',
+      distanceKm: 8.2,
+      rating: 4.9,
+      chikitsaCareScore: 96,
+      acceptedGovSchemes: ['100% Free Public Care', 'Ayushman Bharat PM-JAY', 'National Rare Diseases Fund', 'PMNRF'],
+      emergency24x7: true,
+      contactNumber: '+91 20 2612 7000',
+      mapsCoord: { lat: 18.5314, lng: 73.8446 },
+      opdDepartments: ['Cardiology', 'Oncology', 'Gastroenterology', 'General Surgery', 'Pediatrics'],
+      bedTelemetry: {
+        icuTotal: 85,
+        icuAvailable: 12,
+        ventilatorTotal: 45,
+        ventilatorAvailable: 8,
+        oxygenBedsTotal: 220,
+        oxygenBedsAvailable: 64,
+        generalBedsTotal: 850,
+        generalBedsAvailable: 110,
+        lastTelemetryPing: '2 mins ago'
+      },
+      bloodBankStock: [
+        { group: 'A+', units: 65, isCriticallyLow: false },
+        { group: 'A-', units: 14, isCriticallyLow: false },
+        { group: 'B+', units: 72, isCriticallyLow: false },
+        { group: 'B-', units: 11, isCriticallyLow: false },
+        { group: 'AB+', units: 29, isCriticallyLow: false },
+        { group: 'AB-', units: 8, isCriticallyLow: false },
+        { group: 'O+', units: 98, isCriticallyLow: false },
+        { group: 'O-', units: 15, isCriticallyLow: false }
+      ]
+    },
+    {
+      id: 'HOSP-03',
+      name: 'Sanjeevani Charitable Trust Hospital',
+      city: 'Pune',
+      state: 'Maharashtra',
+      type: 'CHARITABLE_TRUST',
+      distanceKm: 5.1,
+      rating: 4.6,
+      chikitsaCareScore: 89,
+      acceptedGovSchemes: ['MJPJAY Maharashtra', 'Being Human Foundation', 'Smile Foundation Grant'],
+      emergency24x7: true,
+      contactNumber: '+91 20 2445 1100',
+      mapsCoord: { lat: 18.5089, lng: 73.8540 },
+      opdDepartments: ['General Medicine', 'Ophthalmology', 'ENT', 'Gynecology'],
+      bedTelemetry: {
+        icuTotal: 16,
+        icuAvailable: 3,
+        ventilatorTotal: 8,
+        ventilatorAvailable: 2,
+        oxygenBedsTotal: 40,
+        oxygenBedsAvailable: 12,
+        generalBedsTotal: 120,
+        generalBedsAvailable: 28,
+        lastTelemetryPing: '4 mins ago'
+      },
+      bloodBankStock: [
+        { group: 'A+', units: 12, isCriticallyLow: false },
+        { group: 'A-', units: 2, isCriticallyLow: true },
+        { group: 'B+', units: 18, isCriticallyLow: false },
+        { group: 'B-', units: 3, isCriticallyLow: true },
+        { group: 'AB+', units: 6, isCriticallyLow: false },
+        { group: 'AB-', units: 1, isCriticallyLow: true },
+        { group: 'O+', units: 20, isCriticallyLow: false },
+        { group: 'O-', units: 2, isCriticallyLow: true }
+      ]
     }
-    if (!localStorage.getItem(STORAGE_KEYS.PATIENT_PROFILE)) {
-      this.setStorage(STORAGE_KEYS.PATIENT_PROFILE, INITIAL_PATIENT_PROFILE);
+  ];
+
+  private liveOPDQueues: LiveOPDToken[] = [
+    {
+      id: 'OPD-2026-8A92F',
+      referenceId: 'CHX-2026-8A92F',
+      patientId: 'USR-PAT-2026-01',
+      patientName: 'Ankit Patel',
+      hospitalId: 'HOSP-01',
+      hospitalName: 'CarePlus Tertiary Heart Hospital',
+      department: 'Cardiology',
+      doctorName: 'Dr. Rajesh Kulkarni',
+      appointmentDate: 'Today (Live)',
+      appointmentSlot: '11:30 AM',
+      tokenNumber: 18,
+      currentServingToken: 14,
+      estimatedWaitMinutes: 16,
+      status: 'WAITING',
+      doctorDelayNotes: 'Doctor completing an emergency stenting procedure. Expected delay: ~5 mins.'
     }
-    if (!localStorage.getItem(STORAGE_KEYS.HOSPITALS)) {
-      this.setStorage(STORAGE_KEYS.HOSPITALS, SEED_HOSPITALS);
+  ];
+
+  private genericDrugs: GenericDrugMapping[] = [
+    {
+      id: 'GEN-01',
+      brandedName: 'Augmentin 625 Duo (GSK)',
+      genericMolecule: 'Amoxycillin (500mg) + Clavulanic Acid (125mg)',
+      dosage: '10 Tablets Strip',
+      brandedPrice: 224,
+      janAushadhiPrice: 48,
+      savingsPercentage: 78.5,
+      category: 'Antibiotic'
+    },
+    {
+      id: 'GEN-02',
+      brandedName: 'Lipitor / Atorva 10mg (Pfizer/Zydus)',
+      genericMolecule: 'Atorvastatin 10mg',
+      dosage: '15 Tablets Strip',
+      brandedPrice: 195,
+      janAushadhiPrice: 22,
+      savingsPercentage: 88.7,
+      category: 'Cholesterol & Heart'
+    },
+    {
+      id: 'GEN-03',
+      brandedName: 'Januvia 100mg (MSD)',
+      genericMolecule: 'Sitagliptin Phosphate 100mg',
+      dosage: '7 Tablets Strip',
+      brandedPrice: 380,
+      janAushadhiPrice: 70,
+      savingsPercentage: 81.5,
+      category: 'Diabetes Care'
+    },
+    {
+      id: 'GEN-04',
+      brandedName: 'Pantocid 40mg (Sun Pharma)',
+      genericMolecule: 'Pantoprazole Sodium 40mg',
+      dosage: '15 Tablets Strip',
+      brandedPrice: 168,
+      janAushadhiPrice: 25,
+      savingsPercentage: 85.1,
+      category: 'Antacid / GERD'
+    },
+    {
+      id: 'GEN-05',
+      brandedName: 'Telma 40mg (Glenmark)',
+      genericMolecule: 'Telmisartan 40mg',
+      dosage: '15 Tablets Strip',
+      brandedPrice: 142,
+      janAushadhiPrice: 20,
+      savingsPercentage: 85.9,
+      category: 'Blood Pressure'
+    },
+    {
+      id: 'GEN-06',
+      brandedName: 'Montair LC (Cipla)',
+      genericMolecule: 'Montelukast 10mg + Levocetirizine 5mg',
+      dosage: '10 Tablets Strip',
+      brandedPrice: 215,
+      janAushadhiPrice: 38,
+      savingsPercentage: 82.3,
+      category: 'Allergy & Asthma'
     }
-    if (!localStorage.getItem(STORAGE_KEYS.DOCTORS)) {
-      this.setStorage(STORAGE_KEYS.DOCTORS, SEED_DOCTORS);
+  ];
+
+  private labBiomarkers: LabBiomarker[] = [
+    {
+      name: 'Hemoglobin (Hb)',
+      hindiName: 'हीमोग्लोबिन',
+      value: 13.8,
+      unit: 'g/dL',
+      normalRange: [13.0, 17.0],
+      status: 'NORMAL',
+      interpretation: 'Normal oxygen carrying capacity. No anemia detected.',
+      hindiInterpretation: 'हीमोग्लोबिन स्तर सामान्य है। खून की कमी नहीं है।'
+    },
+    {
+      name: 'Total Leukocyte Count (TLC/WBC)',
+      hindiName: 'श्वेत रक्त कोशिकाएं (WBC)',
+      value: 11800,
+      unit: '/mcL',
+      normalRange: [4000, 10500],
+      status: 'ELEVATED',
+      interpretation: 'Slightly elevated WBC count indicating active immune response or mild infection.',
+      hindiInterpretation: 'डब्ल्यूबीसी थोड़ी बढ़ी हुई है, जो हल्के संक्रमण या सूजन का संकेत है।'
+    },
+    {
+      name: 'Platelet Count',
+      hindiName: 'प्लेटलेट्स',
+      value: 210000,
+      unit: '/mcL',
+      normalRange: [150000, 450000],
+      status: 'NORMAL',
+      interpretation: 'Healthy clotting ability. Dengue / thrombocytopenia risk excluded.',
+      hindiInterpretation: 'प्लेटलेट्स बिल्कुल सामान्य और सुरक्षित सीमा में हैं।'
+    },
+    {
+      name: 'Fasting Blood Glucose',
+      hindiName: 'फास्टिंग ब्लड शुगर',
+      value: 112,
+      unit: 'mg/dL',
+      normalRange: [70, 99],
+      status: 'ELEVATED',
+      interpretation: 'Impaired fasting glucose (Pre-diabetes range). Diet & lifestyle modification recommended.',
+      hindiInterpretation: 'ब्लड शुगर सामान्य से थोड़ा अधिक (प्री-डायबिटीक) है। खान-पान में सुधार करें।'
+    },
+    {
+      name: 'HbA1c (3-Month Glycated Avg)',
+      hindiName: 'एचबीए1सी (3 माह का औसत)',
+      value: 6.7,
+      unit: '%',
+      normalRange: [4.0, 5.6],
+      status: 'ELEVATED',
+      interpretation: 'Early type 2 diabetic range. Endocrinology consult advised.',
+      hindiInterpretation: '3 महीने का शुगर स्तर हल्का बढ़ा हुआ है। डॉक्टर से दवा की सलाह लें।'
+    },
+    {
+      name: 'Serum Creatinine (Kidney)',
+      hindiName: 'सीरम क्रिएटिनिन (किडनी)',
+      value: 0.95,
+      unit: 'mg/dL',
+      normalRange: [0.7, 1.3],
+      status: 'NORMAL',
+      interpretation: 'Healthy glomerular filtration and normal kidney function.',
+      hindiInterpretation: 'किडनी की कार्यप्रणाली पूरी तरह स्वस्थ है।'
+    },
+    {
+      name: 'SGPT / ALT (Liver Enzyme)',
+      hindiName: 'एसजीपीटी (लिवर एंजाइम)',
+      value: 38,
+      unit: 'U/L',
+      normalRange: [7, 56],
+      status: 'NORMAL',
+      interpretation: 'Normal liver cell integrity. No hepatic injury detected.',
+      hindiInterpretation: 'लिवर पूरी तरह सामान्य और स्वस्थ है।'
+    },
+    {
+      name: 'Serum Total Cholesterol',
+      hindiName: 'कुल कोलेस्ट्रॉल',
+      value: 235,
+      unit: 'mg/dL',
+      normalRange: [125, 200],
+      status: 'CRITICAL_HIGH',
+      interpretation: 'Hypercholesterolemia. Elevated cardiovascular plaque risk. Statin therapy indicated.',
+      hindiInterpretation: 'कोलेस्ट्रॉल खतरनाक रूप से बढ़ा हुआ है। तुरंत कार्डियोलॉजिस्ट से परामर्श लें।'
     }
-    if (!localStorage.getItem(STORAGE_KEYS.INSURANCE_POLICIES)) {
-      this.setStorage(STORAGE_KEYS.INSURANCE_POLICIES, SEED_INSURANCE_POLICIES);
+  ];
+
+  private crowdfundingCampaign: CrowdfundingCampaign = {
+    id: 'CROWD-2026-901',
+    patientName: 'Master Aarav (8 yrs)',
+    diagnosis: 'Congenital Ventricular Septal Defect (Pediatric Open Heart Surgery)',
+    hospitalName: 'CarePlus Pediatric Cardiac Center',
+    targetAmount: 350000,
+    raisedAmount: 268400,
+    donorCount: 142,
+    story: 'Young Aarav requires urgent corrective cardiac repair. While Ayushman Bharat PM-JAY and Tata Trusts covered ₹2,50,000, his family from rural Satara needs urgent micro-donations to bridge the critical ICU & post-op medication gap.',
+    verifiedDoctorLetterUrl: 'https://chikitsax.gov.in/verify/doc-cert-aarav-901.pdf',
+    qrDonationLink: 'upi://pay?pa=chikitsax.relief@sbi&pn=ChikitsaAid&am=500&cu=INR',
+    daysRemaining: 4
+  };
+
+  private soapNotes: SOAPClinicalNote[] = [
+    {
+      id: 'SOAP-2026-001',
+      patientId: 'USR-PAT-2026-01',
+      doctorName: 'Dr. Rajesh Kulkarni, MD, DM (Cardiology)',
+      hospitalName: 'CarePlus Heart Hospital',
+      date: '2026-03-12',
+      subjective: '31-year-old male presents with intermittent retrosternal tightness and exertional shortness of breath for 4 days. Worse on brisk walking. Relieved with rest.',
+      objective: 'BP: 138/88 mmHg, HR: 82 bpm regular, SpO2: 98% room air. ECG shows sinus rhythm, mild non-specific ST changes in V4-V6. Total Cholesterol: 235 mg/dL.',
+      assessment: 'Suspected Angina Pectoris (Class II NYHA) with Dyslipidemia. Risk factors: Family history, elevated LDL.',
+      plan: '1. Fasting lipid profile & 2D-Echocardiogram tomorrow.\n2. TMT (Treadmill Test) if Echo normal.\n3. Start Atorvastatin 20mg HS + Metoprolol Succinate 25mg OD.\n4. PM-JAY pre-auth initiated for Angiography if symptoms recur.',
+      prescriptions: [
+        { medicine: 'Atorvastatin 20mg', dosage: '1 Tab', frequency: 'Bedtime (HS)', duration: '30 Days', genericAlternative: 'Jan Aushadhi Atorvastatin 20mg (₹26)' },
+        { medicine: 'Metoprolol Succinate 25mg', dosage: '1 Tab', frequency: 'Morning after food (OD)', duration: '30 Days', genericAlternative: 'Jan Aushadhi Metoprolol 25mg (₹18)' },
+        { medicine: 'Sorbitrate 5mg', dosage: '1 Tab SOS', frequency: 'Sublingual if chest pain occurs', duration: 'As needed', genericAlternative: 'Jan Aushadhi Isosorbide (₹8)' }
+      ],
+      digitalSignature: 'SHA256: 7f8a91c0e39b4d8f... [VERIFIED NMC-REG: 489201]',
+      verifiedByQR: 'https://chikitsax.abdm.gov.in/verify/rx/SOAP-2026-001'
     }
-    if (!localStorage.getItem(STORAGE_KEYS.GOV_SCHEMES)) {
-      this.setStorage(STORAGE_KEYS.GOV_SCHEMES, SEED_GOV_SCHEMES);
+  ];
+
+  // Getters & Updaters
+  getCurrentUser(): User {
+    const saved = localStorage.getItem('chikitsax_v2_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
     }
-    if (!localStorage.getItem(STORAGE_KEYS.NGO_SUPPORT)) {
-      this.setStorage(STORAGE_KEYS.NGO_SUPPORT, SEED_NGO_SUPPORT);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.OPD_REGISTRATIONS)) {
-      this.setStorage(STORAGE_KEYS.OPD_REGISTRATIONS, SEED_OPD_REGISTRATIONS);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.CONSENTS)) {
-      this.setStorage(STORAGE_KEYS.CONSENTS, []);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.CONSULTATIONS)) {
-      this.setStorage(STORAGE_KEYS.CONSULTATIONS, []);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.COST_ESTIMATES)) {
-      this.setStorage(STORAGE_KEYS.COST_ESTIMATES, []);
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS)) {
-      this.logAudit('PATIENT', 'usr-patient-1', 'SYSTEM_INIT', 'Database initialized with demo seed dataset.');
-    }
+    return this.currentUser;
   }
 
-  // User & Auth
-  public getCurrentUser(): User {
-    return this.getStorage<User>(STORAGE_KEYS.CURRENT_USER, DEMO_USERS[0]);
+  setCurrentUser(u: User): void {
+    this.currentUser = u;
+    localStorage.setItem('chikitsax_v2_user', JSON.stringify(u));
   }
 
-  public setCurrentUser(user: User): void {
-    this.setStorage(STORAGE_KEYS.CURRENT_USER, user);
-    this.logAudit(user.role, user.id, 'SWITCH_ROLE', `Active role switched to ${user.role} (${user.email})`);
-  }
+  getDemoUsers(): User[] { return this.demoUsers; }
+  getABHAProfile(): ABHAProfile { return this.abhaProfile; }
+  getFHIRRecords(): FHIRRecord[] { return this.fhirRecords; }
+  getHospitals(): Hospital[] { return this.hospitals; }
+  getGenericDrugs(): GenericDrugMapping[] { return this.genericDrugs; }
+  getLabBiomarkers(): LabBiomarker[] { return this.labBiomarkers; }
+  getLiveOPDQueues(): LiveOPDToken[] { return this.liveOPDQueues; }
+  getCrowdfundingCampaign(): CrowdfundingCampaign { return this.crowdfundingCampaign; }
+  getSOAPNotes(): SOAPClinicalNote[] { return this.soapNotes; }
 
-  public getDemoUsers(): User[] {
-    return DEMO_USERS;
-  }
-
-  // Patient Profile
-  public getPatientProfile(): PatientProfile {
-    return this.getStorage<PatientProfile>(STORAGE_KEYS.PATIENT_PROFILE, INITIAL_PATIENT_PROFILE);
-  }
-
-  public updatePatientProfile(updated: Partial<PatientProfile>): PatientProfile {
-    const current = this.getPatientProfile();
-    const newProfile = { ...current, ...updated };
-    this.setStorage(STORAGE_KEYS.PATIENT_PROFILE, newProfile);
-    this.logAudit('PATIENT', current.userId, 'UPDATE_HEALTH_PROFILE', 'Updated unified health profile parameters');
-    return newProfile;
-  }
-
-  public updateCareStage(stage: number): void {
-    const profile = this.getPatientProfile();
-    if (stage > profile.careStage) {
-      profile.careStage = stage;
-      this.setStorage(STORAGE_KEYS.PATIENT_PROFILE, profile);
-      this.logAudit('PATIENT', profile.userId, 'CARE_STAGE_PROGRESS', `Care journey progressed to stage ${stage}`);
-    }
-  }
-
-  // Symptom Intakes
-  public addSymptomIntake(intake: SymptomIntake): void {
-    const list = this.getStorage<SymptomIntake[]>(STORAGE_KEYS.SYMPTOM_INTAKES, []);
-    list.unshift(intake);
-    this.setStorage(STORAGE_KEYS.SYMPTOM_INTAKES, list);
-
-    // Update patient profile symptoms
-    const profile = this.getPatientProfile();
-    const merged = Array.from(new Set([...profile.symptoms, ...intake.extractedSymptoms]));
-    this.updatePatientProfile({ symptoms: merged });
-    this.updateCareStage(2);
-    this.logAudit('PATIENT', intake.patientId, 'AI_VOICE_INTAKE', `Recorded intake: ${intake.extractedSymptoms.join(', ')}`);
-  }
-
-  public getSymptomIntakes(): SymptomIntake[] {
-    return this.getStorage<SymptomIntake[]>(STORAGE_KEYS.SYMPTOM_INTAKES, []);
-  }
-
-  // Medical Records OCR
-  public addMedicalRecord(record: MedicalRecord): void {
-    const list = this.getStorage<MedicalRecord[]>(STORAGE_KEYS.MEDICAL_RECORDS, []);
-    list.unshift(record);
-    this.setStorage(STORAGE_KEYS.MEDICAL_RECORDS, list);
-
-    // Sync extracted data to profile
-    const profile = this.getPatientProfile();
-    const newMedications = record.ocrExtractedData.medicinesExtracted || [];
-    const newAllergies = record.ocrExtractedData.allergiesExtracted || [];
-    const mergedMeds = Array.from(new Set([...profile.medications, ...newMedications]));
-    const mergedAllergies = Array.from(new Set([...profile.allergies, ...newAllergies]));
-    
-    this.updatePatientProfile({
-      medications: mergedMeds,
-      allergies: mergedAllergies
-    });
-    this.updateCareStage(3);
-    this.logAudit('PATIENT', record.patientId, 'UPLOAD_OCR_RECORD', `Processed OCR record: ${record.fileName} (${record.category})`);
-  }
-
-  public getMedicalRecords(): MedicalRecord[] {
-    return this.getStorage<MedicalRecord[]>(STORAGE_KEYS.MEDICAL_RECORDS, []);
-  }
-
-  // Triage Results
-  public saveTriageResult(triage: TriageResult): void {
-    const list = this.getStorage<TriageResult[]>(STORAGE_KEYS.TRIAGE_RESULTS, []);
-    list.unshift(triage);
-    this.setStorage(STORAGE_KEYS.TRIAGE_RESULTS, list);
-    this.updateCareStage(4);
-    this.logAudit('PATIENT', triage.patientId, 'AI_TRIAGE', `Triage generated: Risk ${triage.riskLevel}, Urgency: ${triage.urgency}`);
-  }
-
-  public getLatestTriage(): TriageResult | null {
-    const list = this.getStorage<TriageResult[]>(STORAGE_KEYS.TRIAGE_RESULTS, []);
-    return list.length > 0 ? list[0] : null;
-  }
-
-  // Hospitals & Doctors
-  public getHospitals(): Hospital[] {
-    return this.getStorage<Hospital[]>(STORAGE_KEYS.HOSPITALS, SEED_HOSPITALS);
-  }
-
-  public getDoctors(hospitalId?: string): Doctor[] {
-    const list = this.getStorage<Doctor[]>(STORAGE_KEYS.DOCTORS, SEED_DOCTORS);
-    return hospitalId ? list.filter(d => d.hospitalId === hospitalId) : list;
-  }
-
-  // OPD Registrations
-  public createOPDRegistration(opd: OPDRegistration): void {
-    const list = this.getStorage<OPDRegistration[]>(STORAGE_KEYS.OPD_REGISTRATIONS, SEED_OPD_REGISTRATIONS);
-    list.unshift(opd);
-    this.setStorage(STORAGE_KEYS.OPD_REGISTRATIONS, list);
-
-    // Save QR token reference
-    const qrTokens = this.getStorage<QRPassToken[]>(STORAGE_KEYS.QR_TOKENS, []);
-    qrTokens.unshift({
-      id: `qr-${opd.id}`,
-      referenceId: opd.referenceId,
-      token: opd.qrToken,
-      patientId: opd.patientId,
-      hospitalId: opd.hospitalId,
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
-      isVerified: false
-    });
-    this.setStorage(STORAGE_KEYS.QR_TOKENS, qrTokens);
-
-    this.updateCareStage(6);
-    this.logAudit('PATIENT', opd.patientId, 'OPD_BOOKED', `Booked OPD ${opd.referenceId} at ${opd.hospitalName} with ${opd.doctorName}`);
-  }
-
-  public getOPDRegistrations(): OPDRegistration[] {
-    return this.getStorage<OPDRegistration[]>(STORAGE_KEYS.OPD_REGISTRATIONS, SEED_OPD_REGISTRATIONS);
-  }
-
-  public getOPDByRefId(refId: string): OPDRegistration | undefined {
-    const list = this.getOPDRegistrations();
-    return list.find(o => o.referenceId.trim().toUpperCase() === refId.trim().toUpperCase());
-  }
-
-  public verifyQRPass(refId: string, staffName: string): { success: boolean; opd?: OPDRegistration; message: string } {
-    const opd = this.getOPDByRefId(refId);
-    if (!opd) {
-      return { success: false, message: `Reference ID ${refId} not found in hospital system.` };
-    }
-
-    opd.status = 'VERIFIED';
-    const list = this.getOPDRegistrations();
-    const idx = list.findIndex(o => o.id === opd.id);
-    if (idx !== -1) list[idx] = opd;
-    this.setStorage(STORAGE_KEYS.OPD_REGISTRATIONS, list);
-
-    // Update QR token status
-    const qrTokens = this.getStorage<QRPassToken[]>(STORAGE_KEYS.QR_TOKENS, []);
-    const qToken = qrTokens.find(q => q.referenceId.trim().toUpperCase() === refId.trim().toUpperCase());
-    if (qToken) {
-      qToken.isVerified = true;
-      qToken.verifiedAt = new Date().toISOString();
-      qToken.verifiedByStaff = staffName;
-      this.setStorage(STORAGE_KEYS.QR_TOKENS, qrTokens);
-    }
-
-    // Auto-create consent request
-    this.requestConsent(opd.patientId, opd.hospitalId, opd.hospitalName, opd.doctorId, opd.doctorName);
-
-    this.logAudit('HOSPITAL_ADMIN', 'usr-hospital-1', 'QR_VERIFICATION', `Verified appointment ${refId} for patient ${opd.patientName}`);
-    return { success: true, opd, message: `Successfully verified appointment for ${opd.patientName}` };
-  }
-
-  // Patient Consents
-  public requestConsent(patientId: string, hospitalId: string, hospitalName: string, doctorId?: string, doctorName?: string): PatientConsent {
-    const list = this.getStorage<PatientConsent[]>(STORAGE_KEYS.CONSENTS, []);
-    const existing = list.find(c => c.patientId === patientId && c.hospitalId === hospitalId && c.status === 'PENDING');
-    if (existing) return existing;
-
-    const consent: PatientConsent = {
-      id: `cst-${Date.now()}`,
-      patientId,
-      hospitalId,
-      hospitalName,
-      doctorId,
-      doctorName,
-      requestedAt: new Date().toISOString(),
-      status: 'PENDING',
-      accessibleSections: ['PROFILE', 'SYMPTOMS', 'OCR_RECORDS', 'TRIAGE']
-    };
-    list.unshift(consent);
-    this.setStorage(STORAGE_KEYS.CONSENTS, list);
-    return consent;
-  }
-
-  public getConsents(): PatientConsent[] {
-    return this.getStorage<PatientConsent[]>(STORAGE_KEYS.CONSENTS, []);
-  }
-
-  public updateConsentStatus(consentId: string, status: 'GRANTED' | 'REVOKED'): void {
-    const list = this.getConsents();
-    const consent = list.find(c => c.id === consentId);
-    if (consent) {
-      consent.status = status;
-      if (status === 'GRANTED') {
-        consent.grantedAt = new Date().toISOString();
-        this.updateCareStage(7);
+  // Queue Advance Simulation
+  advanceQueueToken(opdId: string): LiveOPDToken | null {
+    const q = this.liveOPDQueues.find(item => item.id === opdId);
+    if (q && q.currentServingToken < q.tokenNumber) {
+      q.currentServingToken += 1;
+      q.estimatedWaitMinutes = Math.max(0, (q.tokenNumber - q.currentServingToken) * 4);
+      if (q.currentServingToken === q.tokenNumber) {
+        q.status = 'SERVING';
       }
-      this.setStorage(STORAGE_KEYS.CONSENTS, list);
-      this.logAudit('PATIENT', consent.patientId, 'CONSENT_UPDATE', `Consent ${status} for ${consent.hospitalName}`);
+      return { ...q };
     }
+    return null;
   }
 
-  public isConsentGranted(patientId: string, hospitalId: string): boolean {
-    const list = this.getConsents();
-    return list.some(c => c.patientId === patientId && c.hospitalId === hospitalId && c.status === 'GRANTED');
-  }
+  // Create new OPD appointment
+  bookOPDAppointment(
+    hospitalId: string,
+    department: string,
+    doctorName: string,
+    slot: string
+  ): LiveOPDToken {
+    const hosp = this.hospitals.find(h => h.id === hospitalId) || this.hospitals[0];
+    const randNum = Math.floor(1000 + Math.random() * 9000);
+    const tokenNum = 19 + Math.floor(Math.random() * 5);
+    const currentServing = tokenNum - (3 + Math.floor(Math.random() * 3));
+    const waitMins = (tokenNum - currentServing) * 4;
 
-  // Doctor Consultations & Cost Estimates
-  public addConsultation(consultation: Consultation): void {
-    const list = this.getStorage<Consultation[]>(STORAGE_KEYS.CONSULTATIONS, []);
-    list.unshift(consultation);
-    this.setStorage(STORAGE_KEYS.CONSULTATIONS, list);
-    this.updateCareStage(8);
-    this.logAudit('DOCTOR', consultation.doctorId, 'ADD_CONSULTATION', `Clinical notes & treatment plan saved for ${consultation.patientName}`);
-  }
-
-  public getConsultations(): Consultation[] {
-    return this.getStorage<Consultation[]>(STORAGE_KEYS.CONSULTATIONS, []);
-  }
-
-  public saveCostEstimate(estimate: TreatmentCostEstimate): void {
-    const list = this.getStorage<TreatmentCostEstimate[]>(STORAGE_KEYS.COST_ESTIMATES, []);
-    list.unshift(estimate);
-    this.setStorage(STORAGE_KEYS.COST_ESTIMATES, list);
-    this.updateCareStage(9);
-    this.logAudit('DOCTOR', 'usr-doctor-1', 'GENERATE_COST_ESTIMATE', `Generated estimate ₹${estimate.estimatedCostRange.min} - ₹${estimate.estimatedCostRange.max} for procedure ${estimate.procedureName}`);
-  }
-
-  public getLatestCostEstimate(): TreatmentCostEstimate | null {
-    const list = this.getStorage<TreatmentCostEstimate[]>(STORAGE_KEYS.COST_ESTIMATES, []);
-    return list.length > 0 ? list[0] : null;
-  }
-
-  // Insurance, Gov Schemes, NGO Assistance
-  public getInsurancePolicies(): InsurancePolicy[] {
-    return this.getStorage<InsurancePolicy[]>(STORAGE_KEYS.INSURANCE_POLICIES, SEED_INSURANCE_POLICIES);
-  }
-
-  public createInsuranceClaim(claim: InsuranceClaim): void {
-    const list = this.getStorage<InsuranceClaim[]>(STORAGE_KEYS.INSURANCE_CLAIMS, []);
-    list.unshift(claim);
-    this.setStorage(STORAGE_KEYS.INSURANCE_CLAIMS, list);
-    this.updateCareStage(10);
-    this.logAudit('PATIENT', claim.patientId, 'SUBMIT_INSURANCE_CLAIM', `Claim ${claim.claimReferenceNumber} submitted for ₹${claim.claimedAmount}`);
-  }
-
-  public getInsuranceClaims(): InsuranceClaim[] {
-    return this.getStorage<InsuranceClaim[]>(STORAGE_KEYS.INSURANCE_CLAIMS, []);
-  }
-
-  public getGovSchemes(): GovernmentScheme[] {
-    return this.getStorage<GovernmentScheme[]>(STORAGE_KEYS.GOV_SCHEMES, SEED_GOV_SCHEMES);
-  }
-
-  public getNGOSupport(): NGOSupport[] {
-    return this.getStorage<NGOSupport[]>(STORAGE_KEYS.NGO_SUPPORT, SEED_NGO_SUPPORT);
-  }
-
-  public updateNGOStatus(ngoId: string, status: 'APPLIED' | 'APPROVED'): void {
-    const list = this.getNGOSupport();
-    const ngo = list.find(n => n.id === ngoId);
-    if (ngo) {
-      ngo.applicationStatus = status;
-      this.setStorage(STORAGE_KEYS.NGO_SUPPORT, list);
-      this.logAudit('PATIENT', 'usr-patient-1', 'NGO_APPLICATION', `Applied for NGO funding: ${ngo.organizationName}`);
-    }
-  }
-
-  // Care-to-Cost Assessment
-  public saveCareToCostAssessment(assessment: CareToCostAssessment): void {
-    const list = this.getStorage<CareToCostAssessment[]>(STORAGE_KEYS.FINANCE_ASSESSMENTS, []);
-    list.unshift(assessment);
-    this.setStorage(STORAGE_KEYS.FINANCE_ASSESSMENTS, list);
-    this.updateCareStage(11);
-    this.logAudit('PATIENT', assessment.patientId, 'CARE_TO_COST_CALC', `Financial Gap calculated: ₹${assessment.financialGap}`);
-  }
-
-  public getLatestCareToCostAssessment(): CareToCostAssessment | null {
-    const list = this.getStorage<CareToCostAssessment[]>(STORAGE_KEYS.FINANCE_ASSESSMENTS, []);
-    return list.length > 0 ? list[0] : null;
-  }
-
-  // Audit Logs
-  public logAudit(actorRole: 'PATIENT' | 'DOCTOR' | 'HOSPITAL_ADMIN', actorId: string, action: string, details: string): void {
-    const list = this.getStorage<AuditLog[]>(STORAGE_KEYS.AUDIT_LOGS, []);
-    const log: AuditLog = {
-      id: `log-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      actorRole,
-      actorId,
-      action,
-      details
+    const newAppointment: LiveOPDToken = {
+      id: `OPD-2026-${randNum}`,
+      referenceId: `CHX-2026-${randNum}`,
+      patientId: this.currentUser.id,
+      patientName: this.currentUser.name,
+      hospitalId: hosp.id,
+      hospitalName: hosp.name,
+      department,
+      doctorName,
+      appointmentDate: 'Today',
+      appointmentSlot: slot,
+      tokenNumber: tokenNum,
+      currentServingToken: currentServing,
+      estimatedWaitMinutes: waitMins,
+      status: 'WAITING'
     };
-    list.unshift(log);
-    // Keep max 50 logs
-    this.setStorage(STORAGE_KEYS.AUDIT_LOGS, list.slice(0, 50));
+
+    this.liveOPDQueues.unshift(newAppointment);
+    return newAppointment;
   }
 
-  public getAuditLogs(): AuditLog[] {
-    return this.getStorage<AuditLog[]>(STORAGE_KEYS.AUDIT_LOGS, []);
+  // Calculate Care-To-Cost
+  calculateFinancialGap(
+    procedureGrossCost: number,
+    hasPMJAY: boolean = true,
+    hasMJPJAY: boolean = true,
+    hasPrivateInsurance: boolean = true,
+    hasNGOAid: boolean = true
+  ): CareCostAssessment {
+    let pmjaySubsidy = 0;
+    let stateSubsidy = 0;
+    let privateInsurance = 0;
+    let ngoAid = 0;
+
+    let remaining = procedureGrossCost;
+
+    if (hasPMJAY) {
+      pmjaySubsidy = Math.min(500000, remaining * 0.65);
+      remaining -= pmjaySubsidy;
+    }
+
+    if (hasMJPJAY && remaining > 0) {
+      stateSubsidy = Math.min(150000, remaining * 0.5);
+      remaining -= stateSubsidy;
+    }
+
+    if (hasPrivateInsurance && remaining > 0) {
+      privateInsurance = Math.min(remaining, 50000);
+      remaining -= privateInsurance;
+    }
+
+    if (hasNGOAid && remaining > 0) {
+      ngoAid = Math.min(remaining, 25000);
+      remaining -= ngoAid;
+    }
+
+    const selfPay = Math.max(0, Math.round(remaining));
+    return {
+      procedureName: 'Coronary Angioplasty & Stenting (DES)',
+      indicativeGrossCost: procedureGrossCost,
+      pmjaySubsidy: Math.round(pmjaySubsidy),
+      stateSchemeSubsidy: Math.round(stateSubsidy),
+      privateInsuranceClaim: Math.round(privateInsurance),
+      ngoCharitableGrant: Math.round(ngoAid),
+      patientSelfPay: selfPay,
+      netFinancialGap: selfPay,
+      isCompletelyCashless: selfPay === 0
+    };
   }
 
-  public resetDemoState(): void {
-    localStorage.clear();
-    this.init();
+  // Calculate 0% EMI options for remaining gap
+  calculateEMIOptions(amount: number): MedicalEMIOption[] {
+    const tenures = [3, 6, 12, 24];
+    return tenures.map(months => ({
+      months,
+      monthlyAmount: Math.round(amount / months),
+      interestRate: 0,
+      processingFee: 0,
+      totalRepayment: amount,
+      isZeroInterest: true
+    }));
+  }
+
+  // Donate to crowdfunding
+  contributeToCrowdfunding(amount: number): CrowdfundingCampaign {
+    this.crowdfundingCampaign.raisedAmount += amount;
+    this.crowdfundingCampaign.donorCount += 1;
+    return { ...this.crowdfundingCampaign };
+  }
+
+  // Save new SOAP clinical note
+  saveSOAPNote(note: Omit<SOAPClinicalNote, 'id' | 'digitalSignature' | 'verifiedByQR'>): SOAPClinicalNote {
+    const fullNote: SOAPClinicalNote = {
+      ...note,
+      id: `SOAP-2026-${Math.floor(100 + Math.random() * 900)}`,
+      digitalSignature: `SHA256:${Math.random().toString(16).substring(2, 10)}... [NMC-REG: 489201]`,
+      verifiedByQR: `https://chikitsax.abdm.gov.in/verify/rx/${Date.now()}`
+    };
+    this.soapNotes.unshift(fullNote);
+    return fullNote;
   }
 }
 
-export const db = new LocalDB();
+export const db = new ChikitsaDatabase();
