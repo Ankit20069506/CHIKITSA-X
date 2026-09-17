@@ -111,6 +111,18 @@ export const HeaderV2: React.FC<Props> = ({
           >
             {language === 'HI' ? 'अस्पताल कमांड' : 'Hospital Command'}
           </button>
+          <button
+            onClick={() => setActiveTab('SYSTEM_JOURNEY')}
+            className={activeTab === 'SYSTEM_JOURNEY' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+          >
+            {language === 'HI' ? '🧭 जर्नी पाथ' : '🧭 System Journey'}
+          </button>
+          <button
+            onClick={() => setActiveTab('AGENT_SWARM')}
+            className={activeTab === 'AGENT_SWARM' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+          >
+            {language === 'HI' ? '🤖 एआई एजेंट्स' : '🤖 AI Agents'}
+          </button>
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

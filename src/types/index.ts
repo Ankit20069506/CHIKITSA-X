@@ -258,3 +258,67 @@ export interface NGOGrantProgram {
   verificationOfficer: string;
   turnaroundTime: string;
 }
+
+export interface HospitalRegistrationForm {
+  name: string;
+  rohiniId: string; // Registry of Hospitals in Network of Insurance (e.g. "ROHINI-411045-88")
+  nabhLevel: 'FULL_NABH' | 'ENTRY_LEVEL' | 'NABL_ACCREDITED' | 'STATE_CERTIFIED';
+  licenseNumber: string;
+  type: 'GOVERNMENT' | 'PRIVATE_EMPANELLED' | 'CHARITABLE_TRUST';
+  city: string;
+  state: string;
+  contactNumber: string;
+  emergency24x7: boolean;
+  icuTotal: number;
+  ventilatorTotal: number;
+  oxygenBedsTotal: number;
+  generalBedsTotal: number;
+  bloodBankInHouse: boolean;
+  bloodUnitsInitial: number;
+  acceptedGovSchemes: string[];
+  opdDepartments: string[];
+  nodalOfficerName: string;
+  nodalOfficerPhone: string;
+}
+
+export interface AutonomousAgentStatus {
+  id: string;
+  name: string;
+  role: string;
+  status: 'ACTIVE' | 'IDLE' | 'PROCESSING' | 'ALERT';
+  intervalSeconds: number;
+  lastExecutionTime: string;
+  metricsProcessedCount: number;
+  lastLogMessage: string;
+  recentLogs: Array<{
+    timestamp: string;
+    level: 'INFO' | 'SUCCESS' | 'WARNING' | 'CRITICAL';
+    message: string;
+  }>;
+}
+
+export interface MasterAuditLogEntry {
+  id: string;
+  timestamp: string;
+  actor: string;
+  actorRole: UserRole | 'AGENT_SWARM' | 'SYSTEM_CORE';
+  action: string;
+  resourceTarget: string;
+  details: string;
+  abdmComplianceTag: string;
+}
+
+export interface JourneyPersonaStep {
+  id: string;
+  order: number;
+  persona: UserRole;
+  title: string;
+  hindiTitle: string;
+  subtitle: string;
+  targetTab: string;
+  targetSubTab?: string;
+  icon: string;
+  status: 'COMPLETED' | 'IN_PROGRESS' | 'READY';
+  deliverables: string[];
+  agentCollaboration: string;
+}

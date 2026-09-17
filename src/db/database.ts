@@ -13,7 +13,10 @@ import type {
   VoiceIntakeRecord,
   GovSchemeInfo,
   InsurancePolicyClaim,
-  NGOGrantProgram
+  NGOGrantProgram,
+  HospitalRegistrationForm,
+  MasterAuditLogEntry,
+  HospitalBedTelemetry
 } from '../types';
 
 class ChikitsaDatabase {
@@ -809,6 +812,155 @@ class ChikitsaDatabase {
 
   getNGOGrants(): NGOGrantProgram[] {
     return [...this.ngoGrants];
+  }
+
+  // Real-time Pub/Sub Event Bus
+  private listeners: Map<string, Set<() => void>> = new Map();
+
+  subscribe(channel: string, callback: () => void): () => void {
+    if (!this.listeners.has(channel)) {
+      this.listeners.set(channel, new Set());
+    }
+    this.listeners.get(channel)!.add(callback);
+    return () => {
+      this.listeners.get(channel)?.delete(callback);
+    };
+  }
+
+  notify(channel: string): void {
+    const subs = this.listeners.get(channel);
+    if (subs) {
+      subs.forEach(cb => {
+        try { cb(); } catch (e) { console.error(e); }
+      });
+    }
+  }
+
+  // Master Audit Trail
+  private auditLogs: MasterAuditLogEntry[] = [
+    {
+      id: 'AUDIT-LOG-101',
+      timestamp: '2026-09-17 08:30',
+      actor: 'Agent-OPDQueueSync',
+      actorRole: 'AGENT_SWARM',
+      action: 'QUEUE_ADVANCE',
+      resourceTarget: 'HOSP-01/Cardiology',
+      details: 'Advanced Token #13 to #14. Recalculated dynamic wait time to 16 mins.',
+      abdmComplianceTag: 'ABDM-M2-TELEMETRY'
+    },
+    {
+      id: 'AUDIT-LOG-102',
+      timestamp: '2026-09-17 08:45',
+      actor: 'Agent-BedTelemetry',
+      actorRole: 'AGENT_SWARM',
+      action: 'ICU_CAPACITY_PING',
+      resourceTarget: 'HOSP-01/ICU',
+      details: 'ICU available beds updated to 7/32 (Occupancy: 78.1%). Safe threshold.',
+      abdmComplianceTag: 'ABDM-M1-FACILITY'
+    },
+    {
+      id: 'AUDIT-LOG-103',
+      timestamp: '2026-09-17 08:52',
+      actor: 'Agent-BloodBankRadar',
+      actorRole: 'AGENT_SWARM',
+      action: 'CRITICAL_STOCK_SCAN',
+      resourceTarget: 'HOSP-01/BloodBank',
+      details: 'O- Negative stock at 3 units (< 5 units threshold). Emergency broadcast initiated.',
+      abdmComplianceTag: 'ABDM-M3-BLOOD-RESERVE'
+    }
+  ];
+
+  getAuditLogs(): MasterAuditLogEntry[] {
+    return [...this.auditLogs];
+  }
+
+  addAuditLog(entry: Omit<MasterAuditLogEntry, 'id' | 'timestamp'>): void {
+    const newLog: MasterAuditLogEntry = {
+      ...entry,
+      id: `AUDIT-LOG-${Math.floor(1000 + Math.random() * 9000)}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
+    };
+    this.auditLogs.unshift(newLog);
+    if (this.auditLogs.length > 50) this.auditLogs.pop();
+    this.notify('audit');
+  }
+
+  // Register New Hospital
+  registerHospital(form: HospitalRegistrationForm): Hospital {
+    const newHosp: Hospital = {
+      id: `HOSP-${Math.floor(10 + Math.random() * 90)}`,
+      name: form.name,
+      city: form.city,
+      state: form.state,
+      type: form.type,
+      distanceKm: Math.round((2 + Math.random() * 8) * 10) / 10,
+      rating: 4.8,
+      chikitsaCareScore: 92,
+      acceptedGovSchemes: form.acceptedGovSchemes.length > 0 ? form.acceptedGovSchemes : ['Ayushman Bharat PM-JAY'],
+      emergency24x7: form.emergency24x7,
+      contactNumber: form.contactNumber,
+      mapsCoord: { lat: 18.5204 + (Math.random() - 0.5) * 0.05, lng: 73.8567 + (Math.random() - 0.5) * 0.05 },
+      opdDepartments: form.opdDepartments.length > 0 ? form.opdDepartments : ['General Medicine', 'Cardiology', 'Orthopedics'],
+      bedTelemetry: {
+        icuTotal: form.icuTotal,
+        icuAvailable: Math.max(1, Math.floor(form.icuTotal * 0.25)),
+        ventilatorTotal: form.ventilatorTotal,
+        ventilatorAvailable: Math.max(1, Math.floor(form.ventilatorTotal * 0.3)),
+        oxygenBedsTotal: form.oxygenBedsTotal,
+        oxygenBedsAvailable: Math.max(2, Math.floor(form.oxygenBedsTotal * 0.35)),
+        generalBedsTotal: form.generalBedsTotal,
+        generalBedsAvailable: Math.max(5, Math.floor(form.generalBedsTotal * 0.4)),
+        lastTelemetryPing: 'Just registered'
+      },
+      bloodBankStock: form.bloodBankInHouse ? [
+        { group: 'A+', units: Math.floor(form.bloodUnitsInitial * 0.25), isCriticallyLow: false },
+        { group: 'A-', units: 4, isCriticallyLow: false },
+        { group: 'B+', units: Math.floor(form.bloodUnitsInitial * 0.3), isCriticallyLow: false },
+        { group: 'B-', units: 3, isCriticallyLow: true },
+        { group: 'AB+', units: 10, isCriticallyLow: false },
+        { group: 'AB-', units: 2, isCriticallyLow: true },
+        { group: 'O+', units: Math.floor(form.bloodUnitsInitial * 0.35), isCriticallyLow: false },
+        { group: 'O-', units: 2, isCriticallyLow: true }
+      ] : []
+    };
+
+    this.hospitals.unshift(newHosp);
+    this.addAuditLog({
+      actor: form.nodalOfficerName || 'Hospital Admin',
+      actorRole: 'HOSPITAL_ADMIN',
+      action: 'HOSPITAL_REGISTRATION',
+      resourceTarget: newHosp.id,
+      details: `Registered ${newHosp.name} (${form.rohiniId}) with ${form.generalBedsTotal} beds, ${form.icuTotal} ICU beds under ${form.nabhLevel}.`,
+      abdmComplianceTag: 'ABDM-M1-FACILITY-REG'
+    });
+    this.notify('hospitals');
+    return newHosp;
+  }
+
+  // Update Bed Telemetry (called by BedTelemetryAgent)
+  updateHospitalBedTelemetry(hospitalId: string, delta: Partial<HospitalBedTelemetry>): void {
+    const hosp = this.hospitals.find(h => h.id === hospitalId) || this.hospitals[0];
+    if (hosp) {
+      hosp.bedTelemetry = {
+        ...hosp.bedTelemetry,
+        ...delta,
+        lastTelemetryPing: 'Live Telemetry (Agent Pinned)'
+      };
+      this.notify('telemetry');
+    }
+  }
+
+  // Update Blood Stock (called by BloodBankRadarAgent)
+  updateBloodStock(hospitalId: string, group: string, deltaUnits: number): void {
+    const hosp = this.hospitals.find(h => h.id === hospitalId) || this.hospitals[0];
+    if (hosp && hosp.bloodBankStock) {
+      const item = hosp.bloodBankStock.find(b => b.group === group);
+      if (item) {
+        item.units = Math.max(0, item.units + deltaUnits);
+        item.isCriticallyLow = item.units < 5;
+        this.notify('blood');
+      }
+    }
   }
 }
 

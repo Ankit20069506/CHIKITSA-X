@@ -10,6 +10,8 @@ import { DoctorDashboardV2 } from './components/doctor/DoctorDashboardV2';
 import { HospitalAdminDashboardV2 } from './components/hospital/HospitalAdminDashboardV2';
 import { EmergencyRadarModal } from './components/common/EmergencyRadarModal';
 import { VoiceIntakeModal } from './components/patient/VoiceIntakeModal';
+import { SystemJourneyFlow } from './components/journey/SystemJourneyFlow';
+import { AgentControlCenter } from './components/agents/AgentControlCenter';
 
 export const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -103,6 +105,23 @@ export const App: React.FC = () => {
 
         {activeTab === 'HOSPITAL_PORTAL' && (
           <HospitalAdminDashboardV2
+            language={language}
+          />
+        )}
+
+        {activeTab === 'SYSTEM_JOURNEY' && (
+          <SystemJourneyFlow
+            language={language}
+            onNavigateToPersona={(role, tab, subTab) => {
+              handleRoleChange(role);
+              if (tab) setActiveTab(tab);
+              if (subTab) setPatientSubTab(subTab);
+            }}
+          />
+        )}
+
+        {activeTab === 'AGENT_SWARM' && (
+          <AgentControlCenter
             language={language}
           />
         )}
