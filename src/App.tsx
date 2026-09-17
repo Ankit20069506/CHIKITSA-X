@@ -12,6 +12,7 @@ import { EmergencyRadarModal } from './components/common/EmergencyRadarModal';
 import { VoiceIntakeModal } from './components/patient/VoiceIntakeModal';
 import { SystemJourneyFlow } from './components/journey/SystemJourneyFlow';
 import { AgentControlCenter } from './components/agents/AgentControlCenter';
+import { AuthRegistrationModal } from './components/auth/AuthRegistrationModal';
 
 export const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -25,6 +26,8 @@ export const App: React.FC = () => {
   const [patientSubTab, setPatientSubTab] = useState<string>('OVERVIEW');
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [isVoiceIntakeOpen, setIsVoiceIntakeOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [initialAuthRole, setInitialAuthRole] = useState<'PATIENT' | 'DOCTOR'>('PATIENT');
 
   const currentUser: User = db.getCurrentUser();
 
@@ -52,6 +55,16 @@ export const App: React.FC = () => {
     else if (role === 'HOSPITAL_ADMIN') setActiveTab('HOSPITAL_PORTAL');
   };
 
+  const handleOpenAuth = (role: 'PATIENT' | 'DOCTOR' = 'PATIENT') => {
+    setInitialAuthRole(role);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (role: UserRole) => {
+    setIsAuthModalOpen(false);
+    handleRoleChange(role);
+  };
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', color: 'var(--text-main)' }}>
       <RoleSwitcherBarV2
@@ -71,6 +84,7 @@ export const App: React.FC = () => {
         setActiveTab={setActiveTab}
         onOpenEmergency={() => setIsEmergencyOpen(true)}
         onOpenVoiceIntake={() => setIsVoiceIntakeOpen(true)}
+        onOpenAuth={handleOpenAuth}
         onRoleSelect={handleRoleChange}
       />
 
@@ -85,6 +99,7 @@ export const App: React.FC = () => {
             }}
             onOpenEmergency={() => setIsEmergencyOpen(true)}
             onOpenVoiceIntake={() => setIsVoiceIntakeOpen(true)}
+            onOpenAuth={handleOpenAuth}
             onSelectRole={handleRoleChange}
           />
         )}
@@ -154,6 +169,15 @@ export const App: React.FC = () => {
             setIsVoiceIntakeOpen(false);
             setIsEmergencyOpen(true);
           }}
+        />
+      )}
+
+      {isAuthModalOpen && (
+        <AuthRegistrationModal
+          language={language}
+          initialRole={initialAuthRole}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccess={handleAuthSuccess}
         />
       )}
 

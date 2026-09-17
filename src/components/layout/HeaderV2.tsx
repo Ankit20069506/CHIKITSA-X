@@ -1,6 +1,6 @@
 import React from 'react';
 import type { UserRole, AppLanguage, User } from '../../types';
-import { Stethoscope, Globe, Moon, Sun, AlertTriangle, Mic } from 'lucide-react';
+import { Stethoscope, Globe, Moon, Sun, AlertTriangle, Mic, UserPlus } from 'lucide-react';
 
 interface Props {
   currentRole: UserRole;
@@ -13,6 +13,7 @@ interface Props {
   setActiveTab: (tab: string) => void;
   onOpenEmergency: () => void;
   onOpenVoiceIntake?: () => void;
+  onOpenAuth?: (role?: 'PATIENT' | 'DOCTOR') => void;
   onRoleSelect: (role: UserRole) => void;
 }
 
@@ -25,6 +26,7 @@ export const HeaderV2: React.FC<Props> = ({
   setActiveTab,
   onOpenEmergency,
   onOpenVoiceIntake,
+  onOpenAuth,
   onRoleSelect
 }) => {
   return (
@@ -126,6 +128,16 @@ export const HeaderV2: React.FC<Props> = ({
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onOpenAuth && (
+            <button
+              onClick={() => onOpenAuth('PATIENT')}
+              className="btn btn-teal btn-sm"
+              title="Register as Patient or Doctor with OTP verification"
+            >
+              <UserPlus size={14} /> {language === 'HI' ? 'पंजीकरण' : 'Register'}
+            </button>
+          )}
+
           {onOpenVoiceIntake && (
             <button
               onClick={onOpenVoiceIntake}

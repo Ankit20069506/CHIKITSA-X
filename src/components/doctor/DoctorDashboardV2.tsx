@@ -13,7 +13,15 @@ export const DoctorDashboardV2: React.FC<Props> = ({ language }) => {
   const [isTelehealthOpen, setIsTelehealthOpen] = useState(false);
   const [isScribeOpen, setIsScribeOpen] = useState(false);
   const [soapNotes, setSoapNotes] = useState<SOAPClinicalNote[]>(() => db.getSOAPNotes());
+  const [activeDoctor, setActiveDoctor] = useState(() => db.getActiveDoctor());
   const activePatient = db.getABHAProfile();
+
+  React.useEffect(() => {
+    const unsub = db.subscribe('doctors', () => {
+      setActiveDoctor(db.getActiveDoctor());
+    });
+    return unsub;
+  }, []);
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '10px 0' }}>
@@ -45,11 +53,13 @@ export const DoctorDashboardV2: React.FC<Props> = ({ language }) => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Dr. Rajesh Kulkarni, MD, DM</h1>
+              <h1 style={{ fontSize: '1.5rem', margin: 0 }}>
+                {activeDoctor.name}{activeDoctor.qualifications ? `, ${activeDoctor.qualifications}` : ''}
+              </h1>
               <span className="badge badge-teal">NMC REGISTERED</span>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
-              CarePlus Tertiary Heart Hospital • Interventional Cardiology OPD #04
+              {activeDoctor.hospitalAffiliation} • {activeDoctor.specialty} OPD • Reg ID: <strong style={{ color: 'var(--medical-blue)' }}>{activeDoctor.nmcRegistrationId}</strong>
             </p>
           </div>
         </div>

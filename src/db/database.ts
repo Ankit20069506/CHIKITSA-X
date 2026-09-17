@@ -16,7 +16,10 @@ import type {
   NGOGrantProgram,
   HospitalRegistrationForm,
   MasterAuditLogEntry,
-  HospitalBedTelemetry
+  HospitalBedTelemetry,
+  DoctorProfile,
+  PatientRegistrationForm,
+  DoctorRegistrationForm
 } from '../types';
 
 class ChikitsaDatabase {
@@ -53,6 +56,37 @@ class ChikitsaDatabase {
       role: 'HOSPITAL_ADMIN',
       phone: '+91 99304 88712',
       hospitalId: 'HOSP-01'
+    }
+  ];
+
+  private registeredDoctors: DoctorProfile[] = [
+    {
+      id: 'DOC-NMC-2024-01',
+      name: 'Dr. Rajesh Kulkarni',
+      email: 'doctor@chikitsax.demo',
+      phone: '+91 98220 11928',
+      nmcRegistrationId: 'MCI-2012-44102',
+      specialty: 'Interventional Cardiology',
+      qualifications: 'MBBS, MD (Medicine), DM (Cardiology)',
+      experienceYears: 14,
+      hospitalAffiliation: 'CarePlus Tertiary Heart Hospital',
+      department: 'Cardiology',
+      isNmcVerified: true,
+      digitalSignatureId: 'DSIG-NMC-88219-KULK'
+    },
+    {
+      id: 'DOC-NMC-2024-02',
+      name: 'Dr. Anita Sen',
+      email: 'anita.sen@aiims.org',
+      phone: '+91 98112 34567',
+      nmcRegistrationId: 'NMC-2016-89211',
+      specialty: 'General Medicine & Diabetology',
+      qualifications: 'MBBS, MD (General Medicine)',
+      experienceYears: 9,
+      hospitalAffiliation: 'Ruby Hall Clinic, Pune',
+      department: 'General Medicine',
+      isNmcVerified: true,
+      digitalSignatureId: 'DSIG-NMC-99124-SEN'
     }
   ];
 
@@ -962,6 +996,117 @@ class ChikitsaDatabase {
       }
     }
   }
+
+  // Register New Patient with OTP Verification
+  registerPatient(form: PatientRegistrationForm): User {
+    const abhaNum = `14-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const cleanName = form.fullName.toLowerCase().replace(/[^a-z0-9]/g, '.');
+    const abhaAddr = `${cleanName}@abdm`;
+    const newUserId = `USR-PAT-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newUser: User = {
+      id: newUserId,
+      name: form.fullName,
+      email: form.email,
+      phone: form.mobile,
+      role: 'PATIENT',
+      abhaAddress: form.autoCreateABHA ? abhaAddr : undefined
+    };
+
+    if (form.autoCreateABHA) {
+      this.abhaProfile = {
+        abhaNumber: abhaNum,
+        abhaAddress: abhaAddr,
+        fullName: form.fullName,
+        dob: form.dob || '1998-05-15',
+        gender: form.gender,
+        bloodGroup: form.bloodGroup,
+        mobile: form.mobile,
+        address: `${form.city}, ${form.state} - India`,
+        kycVerified: true,
+        linkedFacilitiesCount: 1,
+        qrPayload: `https://healthid.ndhm.gov.in/verify?abha=${abhaNum}`
+      };
+    }
+
+    this.demoUsers.unshift(newUser);
+    this.currentUser = newUser;
+
+    this.addAuditLog({
+      actor: form.fullName,
+      actorRole: 'PATIENT',
+      action: 'PATIENT_OTP_REGISTRATION',
+      resourceTarget: newUserId,
+      details: `Registered new patient ${form.fullName} (Email: ${form.email}, Mobile: ${form.mobile}). ABHA: ${form.autoCreateABHA ? abhaNum : 'N/A'}. OTP verified.`,
+      abdmComplianceTag: 'ABDM-M1-PATIENT-KYC'
+    });
+
+    this.notify('patients');
+    return newUser;
+  }
+
+  // Register New Doctor with NMC / Email OTP Verification
+  registerDoctor(form: DoctorRegistrationForm): User {
+    const newUserId = `USR-DOC-${Math.floor(1000 + Math.random() * 9000)}`;
+    const docProfileId = `DOC-NMC-${Math.floor(1000 + Math.random() * 9000)}`;
+    
+    const formattedName = form.fullName.startsWith('Dr.') ? form.fullName : `Dr. ${form.fullName}`;
+
+    const newDoctorProfile: DoctorProfile = {
+      id: docProfileId,
+      name: formattedName,
+      email: form.email,
+      phone: form.mobile,
+      nmcRegistrationId: form.nmcRegistrationId,
+      specialty: form.specialty,
+      qualifications: form.qualifications,
+      experienceYears: form.experienceYears,
+      hospitalAffiliation: form.hospitalAffiliation || 'CarePlus Multi-Specialty Hospital',
+      department: form.specialty,
+      isNmcVerified: true,
+      digitalSignatureId: `DSIG-NMC-${Math.floor(10000 + Math.random() * 90000)}-VERIF`
+    };
+
+    const newUser: User = {
+      id: newUserId,
+      name: formattedName,
+      email: form.email,
+      phone: form.mobile,
+      role: 'DOCTOR',
+      hospitalId: 'HOSP-01'
+    };
+
+    this.registeredDoctors.unshift(newDoctorProfile);
+    this.demoUsers.unshift(newUser);
+    this.currentUser = newUser;
+
+    this.addAuditLog({
+      actor: formattedName,
+      actorRole: 'DOCTOR',
+      action: 'DOCTOR_NMC_REGISTRATION',
+      resourceTarget: docProfileId,
+      details: `Registered medical practitioner ${formattedName} (NMC Reg: ${form.nmcRegistrationId}, Specialty: ${form.specialty}). OTP & NMC credentials verified.`,
+      abdmComplianceTag: 'ABDM-M1-HPR-DOCTOR'
+    });
+
+    this.notify('doctors');
+    return newUser;
+  }
+
+  getRegisteredDoctors(): DoctorProfile[] {
+    return this.registeredDoctors;
+  }
+
+  getActiveDoctor(): DoctorProfile {
+    if (this.currentUser.role === 'DOCTOR') {
+      const found = this.registeredDoctors.find(
+        d => d.email === this.currentUser.email || d.name.toLowerCase() === this.currentUser.name.toLowerCase()
+      );
+      if (found) return found;
+    }
+    return this.registeredDoctors[0];
+  }
 }
 
 export const db = new ChikitsaDatabase();
+

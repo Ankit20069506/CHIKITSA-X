@@ -322,3 +322,51 @@ export interface JourneyPersonaStep {
   deliverables: string[];
   agentCollaboration: string;
 }
+
+export interface DoctorProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  nmcRegistrationId: string;
+  specialty: string;
+  qualifications: string;
+  experienceYears: number;
+  hospitalAffiliation: string;
+  department: string;
+  isNmcVerified: boolean;
+  avatarUrl?: string;
+  digitalSignatureId: string;
+}
+
+export interface PatientRegistrationForm {
+  fullName: string;
+  email: string;
+  mobile: string;
+  dob: string;
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
+  bloodGroup: string;
+  city: string;
+  state: string;
+  autoCreateABHA: boolean;
+}
+
+export interface DoctorRegistrationForm {
+  fullName: string;
+  email: string;
+  mobile: string;
+  nmcRegistrationId: string;
+  specialty: string;
+  qualifications: string;
+  experienceYears: number;
+  hospitalAffiliation: string;
+  verificationMethod: 'EMAIL_OTP' | 'NMC_REGISTRY_OTP';
+}
+
+export interface OTPVerificationState {
+  destination: string;
+  otpCode: string;
+  expiresAt: number;
+  isVerified: boolean;
+  attempts: number;
+}

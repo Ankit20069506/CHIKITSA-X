@@ -1,16 +1,17 @@
 import React from 'react';
 import type { AppLanguage, UserRole } from '../../types';
-import { Activity, ShieldCheck, HeartPulse, Stethoscope, Sparkles, ArrowRight, Percent, Clock, Mic } from 'lucide-react';
+import { Activity, ShieldCheck, HeartPulse, Stethoscope, Sparkles, ArrowRight, Percent, Clock, Mic, UserPlus } from 'lucide-react';
 
 interface Props {
   language: AppLanguage;
   onStartJourney: () => void;
   onOpenEmergency: () => void;
   onOpenVoiceIntake?: () => void;
+  onOpenAuth?: (role: 'PATIENT' | 'DOCTOR') => void;
   onSelectRole: (role: UserRole) => void;
 }
 
-export const LandingPageV2: React.FC<Props> = ({ language, onStartJourney, onOpenEmergency, onOpenVoiceIntake }) => {
+export const LandingPageV2: React.FC<Props> = ({ language, onStartJourney, onOpenEmergency, onOpenVoiceIntake, onOpenAuth }) => {
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px 0 40px' }}>
       <div style={{
@@ -126,6 +127,56 @@ export const LandingPageV2: React.FC<Props> = ({ language, onStartJourney, onOpe
           </p>
         </div>
       </div>
+
+      {onOpenAuth && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12) 0%, rgba(16, 185, 129, 0.1) 100%)',
+          border: '1px solid rgba(2, 132, 199, 0.3)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '28px 32px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '20px',
+          boxShadow: 'var(--shadow-md)'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span className="badge badge-teal">NEW REGISTRATION PORTAL</span>
+              <span className="live-dot" style={{ backgroundColor: '#10b981' }} />
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>ABDM & NMC Verified</span>
+            </div>
+            <h3 style={{ fontSize: '1.35rem', margin: '0 0 6px', fontWeight: 800 }}>
+              {language === 'HI'
+                ? 'नया मरीज या डॉक्टर पंजीकरण करें (OTP सत्यापन सहित)'
+                : 'Register as a New Patient or Doctor with Live OTP Verification'}
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-secondary)', maxWidth: '650px' }}>
+              {language === 'HI'
+                ? 'ईमेल व मोबाइल ओटीपी द्वारा त्वरित मरीज पंजीकरण व ABHA आईडी निर्माण, या एनएमसी पंजीयन सत्यापन के साथ डॉक्टर ऑनबोर्डिंग।'
+                : 'Instant self-registration via mobile & email OTP with automated 14-digit ABHA ID, or verified National Medical Commission (NMC) doctor onboarding.'}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => onOpenAuth('PATIENT')}
+              className="btn btn-primary"
+            >
+              <UserPlus size={16} />
+              {language === 'HI' ? 'मरीज पंजीकरण' : 'Register as Patient'}
+            </button>
+            <button
+              onClick={() => onOpenAuth('DOCTOR')}
+              className="btn btn-teal"
+            >
+              <Stethoscope size={16} />
+              {language === 'HI' ? 'डॉक्टर पंजीकरण' : 'Register as Doctor'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
