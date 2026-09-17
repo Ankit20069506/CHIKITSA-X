@@ -197,3 +197,22 @@ export interface SOAPClinicalNote {
   digitalSignature: string;
   verifiedByQR: string;
 }
+
+export interface VoiceIntakeRecord {
+  id: string;
+  timestamp: string;
+  language: 'hi-IN' | 'en-IN' | 'hinglish' | 'bn-IN' | 'ta-IN';
+  spokenTranscript: string;
+  englishTranslation?: string;
+  chiefComplaint: string;
+  extractedSymptoms: string[];
+  duration: string;
+  severity: 'MILD' | 'MODERATE' | 'SEVERE' | 'CRITICAL';
+  painScaleVAS: number; // 1 - 10
+  bodyRegion: string;
+  isEmergencyRedFlag: boolean;
+  redFlagReason?: string;
+  recommendedSpecialty: string;
+  clinicalImpression: string;
+  confidenceScore: number; // e.g. 94%
+}

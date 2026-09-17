@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { AppLanguage, TriageDifferential, BodySymptom } from '../../types';
-import { Bot, Mic, MicOff, AlertTriangle, ChevronRight, Stethoscope, Sparkles } from 'lucide-react';
+import { Bot, Mic, AlertTriangle, ChevronRight, Stethoscope, Sparkles } from 'lucide-react';
+import { VoiceIntakeModal } from './VoiceIntakeModal';
 
 interface Props {
   language: AppLanguage;
@@ -15,7 +16,7 @@ export const ChikitsaAICopilot: React.FC<Props> = ({
   onNavigateHospitals,
   onEmergencyTrigger
 }) => {
-  const [isListening, setIsListening] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [transcript, setTranscript] = useState(
     activeSymptom
       ? `Patient reports severe ${activeSymptom.symptoms.join(', ')} in ${activeSymptom.partName} (${activeSymptom.hindiName}) with pain VAS severity ${activeSymptom.severity}/10 for ${activeSymptom.duration}.`
@@ -45,14 +46,10 @@ export const ChikitsaAICopilot: React.FC<Props> = ({
     }
   ]);
 
-  const handleVoiceToggle = () => {
-    setIsListening(!isListening);
-    if (!isListening) {
-      setTimeout(() => {
-        setIsListening(false);
-        setTranscript('मुझे पिछले 3 दिनों से सीने में तेज भारीपन और चलने पर सांस फूलने की समस्या हो रही है।');
-      }, 3500);
-    }
+  const handleVoiceIntakeComplete = (symptom: BodySymptom) => {
+    const text = symptom.notes || `Patient reports ${symptom.symptoms.join(', ')} in ${symptom.partName} (${symptom.hindiName}) with severity ${symptom.severity}/10 for ${symptom.duration}.`;
+    setTranscript(text);
+    handleAnalyzeNewTranscript();
   };
 
   const handleAnalyzeNewTranscript = () => {
@@ -116,13 +113,11 @@ export const ChikitsaAICopilot: React.FC<Props> = ({
             {language === 'HI' ? 'रोगी के लक्षण विवरण (Patient Transcript)' : 'Clinical Presentation & Speech Intake'}
           </label>
           <button
-            onClick={handleVoiceToggle}
-            className={isListening ? 'btn btn-emergency btn-sm' : 'btn btn-primary btn-sm'}
+            onClick={() => setIsVoiceModalOpen(true)}
+            className="btn btn-purple btn-sm"
           >
-            {isListening ? <MicOff size={15} /> : <Mic size={15} />}
-            {isListening
-              ? (language === 'HI' ? 'सुन रहा है... (Listening)' : 'Listening...')
-              : (language === 'HI' ? 'आवाज से बोलें' : 'Speak Symptoms')}
+            <Mic size={15} />
+            {language === 'HI' ? 'आवाज से लक्षण बोलें (Voice Intake)' : 'Speak Symptoms (Voice Intake)'}
           </button>
         </div>
 
@@ -212,6 +207,16 @@ export const ChikitsaAICopilot: React.FC<Props> = ({
           ))}
         </div>
       </div>
+
+      {isVoiceModalOpen && (
+        <VoiceIntakeModal
+          language={language}
+          onClose={() => setIsVoiceModalOpen(false)}
+          onTransferToTriage={handleVoiceIntakeComplete}
+          onBookOPD={onNavigateHospitals}
+          onOpenEmergency={onEmergencyTrigger}
+        />
+      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { UserRole, AppLanguage, User } from '../../types';
-import { Stethoscope, Globe, Moon, Sun, AlertTriangle } from 'lucide-react';
+import { Stethoscope, Globe, Moon, Sun, AlertTriangle, Mic } from 'lucide-react';
 
 interface Props {
   currentRole: UserRole;
@@ -12,6 +12,7 @@ interface Props {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenEmergency: () => void;
+  onOpenVoiceIntake?: () => void;
   onRoleSelect: (role: UserRole) => void;
 }
 
@@ -23,6 +24,7 @@ export const HeaderV2: React.FC<Props> = ({
   activeTab,
   setActiveTab,
   onOpenEmergency,
+  onOpenVoiceIntake,
   onRoleSelect
 }) => {
   return (
@@ -112,6 +114,16 @@ export const HeaderV2: React.FC<Props> = ({
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onOpenVoiceIntake && (
+            <button
+              onClick={onOpenVoiceIntake}
+              className="btn btn-purple btn-sm"
+              title="Speak symptoms in Hindi, Hinglish, or English"
+            >
+              <Mic size={14} /> {language === 'HI' ? 'आवाज से जांच' : 'Voice Intake'}
+            </button>
+          )}
+
           <button onClick={onOpenEmergency} className="btn btn-emergency btn-sm">
             <AlertTriangle size={15} /> 1-Tap SOS
           </button>

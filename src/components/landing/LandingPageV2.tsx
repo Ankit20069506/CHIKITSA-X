@@ -1,15 +1,16 @@
 import React from 'react';
 import type { AppLanguage, UserRole } from '../../types';
-import { Activity, ShieldCheck, HeartPulse, Stethoscope, Sparkles, ArrowRight, Percent, Clock } from 'lucide-react';
+import { Activity, ShieldCheck, HeartPulse, Stethoscope, Sparkles, ArrowRight, Percent, Clock, Mic } from 'lucide-react';
 
 interface Props {
   language: AppLanguage;
   onStartJourney: () => void;
   onOpenEmergency: () => void;
+  onOpenVoiceIntake?: () => void;
   onSelectRole: (role: UserRole) => void;
 }
 
-export const LandingPageV2: React.FC<Props> = ({ onStartJourney, onOpenEmergency }) => {
+export const LandingPageV2: React.FC<Props> = ({ language, onStartJourney, onOpenEmergency, onOpenVoiceIntake }) => {
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px 0 40px' }}>
       <div style={{
@@ -41,6 +42,11 @@ export const LandingPageV2: React.FC<Props> = ({ onStartJourney, onOpenEmergency
           <button onClick={onStartJourney} className="btn btn-primary btn-lg">
             Start Patient Care Journey <ArrowRight size={18} />
           </button>
+          {onOpenVoiceIntake && (
+            <button onClick={onOpenVoiceIntake} className="btn btn-purple btn-lg" style={{ boxShadow: '0 8px 20px rgba(147, 51, 234, 0.3)' }}>
+              <Mic size={18} /> {language === 'HI' ? 'बोलकर लक्षण बताएं (Voice)' : 'Speak Symptoms (Voice Intake)'}
+            </button>
+          )}
           <button onClick={onOpenEmergency} className="btn btn-emergency btn-lg">
             1-Tap Emergency SOS Radar
           </button>

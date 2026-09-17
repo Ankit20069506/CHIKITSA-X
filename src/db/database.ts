@@ -9,7 +9,8 @@ import type {
   CareCostAssessment,
   MedicalEMIOption,
   CrowdfundingCampaign,
-  SOAPClinicalNote
+  SOAPClinicalNote,
+  VoiceIntakeRecord
 } from '../types';
 
 class ChikitsaDatabase {
@@ -559,6 +560,59 @@ class ChikitsaDatabase {
     };
     this.soapNotes.unshift(fullNote);
     return fullNote;
+  }
+
+  // Voice Intake Records History
+  private voiceIntakeHistory: VoiceIntakeRecord[] = [
+    {
+      id: 'VOICE-INTAKE-901',
+      timestamp: '2026-09-16 14:30',
+      language: 'hi-IN',
+      spokenTranscript: 'मुझे 3 दिन से सीने में तेज भारीपन और बाएं हाथ में खिंचाव हो रहा है, थोड़ा चलने पर सांस फूलती है।',
+      englishTranslation: 'Severe chest tightness radiating to left arm with exertional dyspnea on walking for 3 days.',
+      chiefComplaint: 'Acute Retrosternal Chest Discomfort & Exertional Dyspnea',
+      extractedSymptoms: ['Chest tightness', 'Left arm radiation', 'Exertional dyspnea'],
+      duration: '3 days',
+      severity: 'SEVERE',
+      painScaleVAS: 8,
+      bodyRegion: 'Chest / Cardiovascular',
+      isEmergencyRedFlag: true,
+      redFlagReason: 'Substernal pressure radiating to left arm with exertional dyspnea indicates acute coronary syndrome risk.',
+      recommendedSpecialty: 'Cardiology (Interventional)',
+      clinicalImpression: 'Suspected Angina Pectoris / Acute Coronary Syndrome (I20.9). Immediate ECG, Troponin-I and 2D-ECHO warranted.',
+      confidenceScore: 96
+    },
+    {
+      id: 'VOICE-INTAKE-902',
+      timestamp: '2026-09-12 09:15',
+      language: 'hinglish',
+      spokenTranscript: 'Last 2 days se high fever 102°F hai, severe headache aur body pain ho raha hai.',
+      englishTranslation: 'High grade fever (102°F) with severe cephalalgia and generalized myalgia for 2 days.',
+      chiefComplaint: 'Acute Febrile Illness with Cephalalgia & Myalgia',
+      extractedSymptoms: ['High fever (102°F)', 'Severe headache', 'Bodyache / Myalgia'],
+      duration: '2 days',
+      severity: 'MODERATE',
+      painScaleVAS: 6,
+      bodyRegion: 'Head & Neck / General',
+      isEmergencyRedFlag: false,
+      recommendedSpecialty: 'General Medicine',
+      clinicalImpression: 'Acute viral febrile syndrome (R50.9). CBC & Dengue NS1 / Malaria antigen advised if temperature persists.',
+      confidenceScore: 92
+    }
+  ];
+
+  getVoiceIntakeHistory(): VoiceIntakeRecord[] {
+    return [...this.voiceIntakeHistory];
+  }
+
+  saveVoiceIntake(record: Omit<VoiceIntakeRecord, 'id' | 'timestamp'>): VoiceIntakeRecord {
+    const newRecord: VoiceIntakeRecord = {
+      ...record,
+      id: `VOICE-INTAKE-${Math.floor(1000 + Math.random() * 9000)}`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
+    };
+    this.voiceIntakeHistory.unshift(newRecord);
+    return newRecord;
   }
 }
 

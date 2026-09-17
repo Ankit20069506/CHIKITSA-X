@@ -9,6 +9,7 @@ import { PatientDashboardV2 } from './components/patient/PatientDashboardV2';
 import { DoctorDashboardV2 } from './components/doctor/DoctorDashboardV2';
 import { HospitalAdminDashboardV2 } from './components/hospital/HospitalAdminDashboardV2';
 import { EmergencyRadarModal } from './components/common/EmergencyRadarModal';
+import { VoiceIntakeModal } from './components/patient/VoiceIntakeModal';
 
 export const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -21,6 +22,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('LANDING');
   const [patientSubTab, setPatientSubTab] = useState<string>('OVERVIEW');
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
+  const [isVoiceIntakeOpen, setIsVoiceIntakeOpen] = useState(false);
 
   const currentUser: User = db.getCurrentUser();
 
@@ -66,6 +68,7 @@ export const App: React.FC = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenEmergency={() => setIsEmergencyOpen(true)}
+        onOpenVoiceIntake={() => setIsVoiceIntakeOpen(true)}
         onRoleSelect={handleRoleChange}
       />
 
@@ -79,6 +82,7 @@ export const App: React.FC = () => {
               setPatientSubTab('AI_INTAKE');
             }}
             onOpenEmergency={() => setIsEmergencyOpen(true)}
+            onOpenVoiceIntake={() => setIsVoiceIntakeOpen(true)}
             onSelectRole={handleRoleChange}
           />
         )}
@@ -108,6 +112,29 @@ export const App: React.FC = () => {
         <EmergencyRadarModal
           language={language}
           onClose={() => setIsEmergencyOpen(false)}
+        />
+      )}
+
+      {isVoiceIntakeOpen && (
+        <VoiceIntakeModal
+          language={language}
+          onClose={() => setIsVoiceIntakeOpen(false)}
+          onTransferToTriage={() => {
+            setIsVoiceIntakeOpen(false);
+            handleRoleChange('PATIENT');
+            setActiveTab('PATIENT_PORTAL');
+            setPatientSubTab('AI_INTAKE');
+          }}
+          onBookOPD={() => {
+            setIsVoiceIntakeOpen(false);
+            handleRoleChange('PATIENT');
+            setActiveTab('PATIENT_PORTAL');
+            setPatientSubTab('HOSPITALS');
+          }}
+          onOpenEmergency={() => {
+            setIsVoiceIntakeOpen(false);
+            setIsEmergencyOpen(true);
+          }}
         />
       )}
 

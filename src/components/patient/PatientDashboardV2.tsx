@@ -15,6 +15,9 @@ import { HospitalFinderV2 } from './HospitalFinderV2';
 import { OPDRegistrationModalV2 } from './OPDRegistrationModalV2';
 import { HospitalPassQRModal } from './HospitalPassQRModal';
 import { EmergencyRadarModal } from '../common/EmergencyRadarModal';
+import { VoiceIntakeView } from './VoiceIntakeView';
+import { VoiceIntakeModal } from './VoiceIntakeModal';
+import { Mic, Sparkles, ArrowRight } from 'lucide-react';
 
 interface Props {
   language: AppLanguage;
@@ -34,6 +37,7 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
   const [activePassForModal, setActivePassForModal] = useState<LiveOPDToken | null>(null);
   const [emiGapAmount, setEmiGapAmount] = useState<number | null>(null);
   const [isCrowdfundingOpen, setIsCrowdfundingOpen] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   return (
     <div>
@@ -47,6 +51,7 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
       }}>
         {[
           { id: 'OVERVIEW', label: language === 'HI' ? 'डैशबोर्ड ओवरव्यू' : 'Care Overview' },
+          { id: 'AI_VOICE', label: language === 'HI' ? '🎙️ वॉयस इनटेक' : '🎙️ AI Voice Intake & Scribe' },
           { id: 'AI_INTAKE', label: language === 'HI' ? 'लक्षण एवं एआई निदान' : 'Interactive Body Map & AI Triage' },
           { id: 'QUEUE', label: language === 'HI' ? 'लाइव ओपीडी टोकन' : 'Live OPD Queue & Pass' },
           { id: 'ABHA', label: language === 'HI' ? 'आभा 2.0 हेल्थ वॉलेट' : 'ABHA 2.0 & FHIR Records' },
@@ -69,6 +74,56 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
 
       {activeSubTab === 'OVERVIEW' && (
         <>
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-md)',
+            padding: '16px 20px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #9333ea 0%, #0284c7 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff'
+              }}>
+                <Mic size={22} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                  {language === 'HI' ? 'बोलकर बताएं अपने लक्षण (Bhashini AI Voice Intake)' : 'Speak Your Symptoms in Hindi / Hinglish / English'}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {language === 'HI' ? 'एआई आपकी आवाज सुनकर तुरंत लक्षण, अवधि व आपातकालीन खतरे (Red Flags) पहचानेगा' : 'Voice AI transcribes speech & extracts clinical triage indicators in seconds'}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="btn btn-purple btn-sm"
+              >
+                <Mic size={14} /> {language === 'HI' ? 'माइक शुरू करें' : 'Open Mic'}
+              </button>
+              <button
+                onClick={() => setActiveSubTab('AI_VOICE')}
+                className="btn btn-secondary btn-sm"
+              >
+                {language === 'HI' ? 'पूरा वॉयस व्यू' : 'Voice Dashboard'} <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+
           <LiveOPDQueueTracker
             language={language}
             onOpenPass={(tok) => setActivePassForModal(tok)}
@@ -111,6 +166,18 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
             onEmergencyTrigger={() => setIsEmergencyOpen(true)}
           />
         </>
+      )}
+
+      {activeSubTab === 'AI_VOICE' && (
+        <VoiceIntakeView
+          language={language}
+          onTransferToTriage={(sym) => {
+            setActiveSymptom(sym);
+            setActiveSubTab('AI_INTAKE');
+          }}
+          onBookOPD={() => setActiveSubTab('HOSPITALS')}
+          onOpenEmergency={() => setIsEmergencyOpen(true)}
+        />
       )}
 
       {activeSubTab === 'QUEUE' && (
@@ -195,6 +262,19 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
         <EmergencyCrowdfunding
           language={language}
           onClose={() => setIsCrowdfundingOpen(false)}
+        />
+      )}
+
+      {isVoiceModalOpen && (
+        <VoiceIntakeModal
+          language={language}
+          onClose={() => setIsVoiceModalOpen(false)}
+          onTransferToTriage={(sym) => {
+            setActiveSymptom(sym);
+            setActiveSubTab('AI_INTAKE');
+          }}
+          onBookOPD={() => setActiveSubTab('HOSPITALS')}
+          onOpenEmergency={() => setIsEmergencyOpen(true)}
         />
       )}
 
