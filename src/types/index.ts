@@ -105,6 +105,16 @@ export interface BloodGroupStock {
   isCriticallyLow: boolean;
 }
 
+export interface HospitalCostProfile {
+  tier: 'FREE_PUBLIC' | 'SUBSIDIZED_CHARITABLE' | 'PMJAY_CASHLESS_MODERATE';
+  tierLabel: string;
+  opdConsultFee: number;
+  pmjayCashlessCoverage: boolean;
+  estOutOfPocketPercent: number; // 0% = completely free
+  costScore: number; // 0 to 100 (100 = most affordable / ₹0 out-of-pocket)
+  approxTreatmentRange: string;
+}
+
 export interface Hospital {
   id: string;
   name: string;
@@ -121,6 +131,7 @@ export interface Hospital {
   emergency24x7: boolean;
   contactNumber: string;
   mapsCoord: { lat: number; lng: number };
+  costProfile?: HospitalCostProfile;
 }
 
 export interface LiveOPDToken {

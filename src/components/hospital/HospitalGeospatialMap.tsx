@@ -13,7 +13,11 @@ import {
   Compass,
   Layers,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  DollarSign,
+  Heart,
+  Sparkles,
+  CheckCircle2
 } from 'lucide-react';
 
 interface Props {
@@ -39,6 +43,8 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [radiusFilterKm, setRadiusFilterKm] = useState<number>(20);
   const [mapType, setMapType] = useState<'STREET' | 'TERRAIN'>('STREET');
+  const [triadFilter, setTriadFilter] = useState<'ALL' | 'NEAREST' | 'FREE_COST' | 'TOP_CARE'>('ALL');
+  const [confirmedSelectedId, setConfirmedSelectedId] = useState<string | null>(null);
 
   // Drag pan state
   const [isDragging, setIsDragging] = useState(false);
@@ -55,7 +61,7 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
     return { x, y };
   };
 
-  // Filter hospitals
+  // Filter hospitals based on search, radius and Triad basis
   const visibleHospitals = useMemo(() => {
     return hospitals.filter(h => {
       if (h.distanceKm > radiusFilterKm) return false;
@@ -66,9 +72,18 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
         const matchesSpecialty = h.opdDepartments?.some(d => d.toLowerCase().includes(q));
         if (!matchesName && !matchesCity && !matchesSpecialty) return false;
       }
+      if (triadFilter === 'NEAREST') {
+        return h.distanceKm <= 4.0;
+      }
+      if (triadFilter === 'FREE_COST') {
+        return h.type === 'GOVERNMENT' || (h.costProfile && h.costProfile.opdConsultFee <= 50);
+      }
+      if (triadFilter === 'TOP_CARE') {
+        return h.chikitsaCareScore >= 94;
+      }
       return true;
     });
-  }, [hospitals, radiusFilterKm, searchQuery]);
+  }, [hospitals, radiusFilterKm, searchQuery, triadFilter]);
 
   // Pan handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -101,6 +116,11 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
     setZoom(13);
   };
 
+  const handleSelectHospitalClick = (hosp: Hospital) => {
+    setConfirmedSelectedId(hosp.id);
+    onSelectHospital(hosp);
+  };
+
   const width = 800;
   const height = 500;
   const userPx = projectToPixels(userLocation.lat, userLocation.lng, width, height);
@@ -115,7 +135,7 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
       boxShadow: 'var(--shadow-md)',
       position: 'relative'
     }}>
-      {/* Top Map Toolbar: Normal Search & Map Controls */}
+      {/* Top Map Toolbar: Search, Triad Filters & Map Controls */}
       <div style={{
         padding: '12px 18px',
         borderBottom: '1px solid var(--border-subtle)',
@@ -143,20 +163,20 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
           </div>
           <div>
             <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700 }}>
-              {language === 'HI' ? 'अस्पताल जियोस्पेशियल लोकेशन मैप' : 'Hospital Geospatial Location Map'}
+              {language === 'HI' ? 'अस्पताल जियोस्पेशियल मैप (स्थान • लागत • देखभाल)' : 'Hospital Geospatial Map (Location • Cost • Care)'}
             </h3>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              📍 18.5582° N, 73.7806° E (Baner, Pune) • {visibleHospitals.length} {language === 'HI' ? 'अस्पताल उपलब्ध' : 'hospitals in area'}
+              📍 18.5582° N, 73.7806° E (Baner, Pune) • {visibleHospitals.length} {language === 'HI' ? 'अस्पताल दृश्यमान' : 'facilities shown'}
             </div>
           </div>
         </div>
 
         {/* Search Bar */}
-        <div style={{ position: 'relative', minWidth: '220px', flex: '1 1 200px', maxWidth: '320px' }}>
+        <div style={{ position: 'relative', minWidth: '180px', flex: '1 1 180px', maxWidth: '260px' }}>
           <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
             type="text"
-            placeholder={language === 'HI' ? 'अस्पताल या विभाग खोजें...' : 'Search hospital or specialty...'}
+            placeholder={language === 'HI' ? 'अस्पताल खोजें...' : 'Search hospital...'}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{
@@ -172,40 +192,42 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
           />
         </div>
 
-        {/* Filters and Normal Map Mode */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Radius selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Radius:</span>
-            {[5, 10, 20].map(rad => (
-              <button
-                key={rad}
-                onClick={() => setRadiusFilterKm(rad)}
-                className={radiusFilterKm === rad ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
-                style={{ padding: '2px 8px', fontSize: '0.72rem' }}
-              >
-                {rad} km
-              </button>
-            ))}
-          </div>
+        {/* Triad Basis Quick Filters */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Filter:</span>
+          {[
+            { id: 'ALL', label: 'All' },
+            { id: 'NEAREST', label: '📍 Nearest (≤4km)' },
+            { id: 'FREE_COST', label: '💰 100% Free / Govt' },
+            { id: 'TOP_CARE', label: '🩺 Top Care (94+)' }
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setTriadFilter(f.id as any)}
+              className={triadFilter === f.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+              style={{ fontSize: '0.7rem', padding: '3px 7px' }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
 
-          {/* Map Type: Normal Street vs Terrain */}
-          <div style={{ display: 'flex', gap: '3px' }}>
-            <button
-              onClick={() => setMapType('STREET')}
-              className={mapType === 'STREET' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
-              style={{ fontSize: '0.72rem', padding: '2px 8px' }}
-            >
-              Street
-            </button>
-            <button
-              onClick={() => setMapType('TERRAIN')}
-              className={mapType === 'TERRAIN' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
-              style={{ fontSize: '0.72rem', padding: '2px 8px' }}
-            >
-              Terrain
-            </button>
-          </div>
+        {/* Map Type: Street vs Terrain */}
+        <div style={{ display: 'flex', gap: '3px' }}>
+          <button
+            onClick={() => setMapType('STREET')}
+            className={mapType === 'STREET' ? 'btn btn-teal btn-sm' : 'btn btn-secondary btn-sm'}
+            style={{ fontSize: '0.7rem', padding: '3px 7px' }}
+          >
+            Street
+          </button>
+          <button
+            onClick={() => setMapType('TERRAIN')}
+            className={mapType === 'TERRAIN' ? 'btn btn-teal btn-sm' : 'btn btn-secondary btn-sm'}
+            style={{ fontSize: '0.7rem', padding: '3px 7px' }}
+          >
+            Terrain
+          </button>
         </div>
       </div>
 
@@ -233,10 +255,10 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
           viewBox={`0 0 ${width} ${height}`}
           style={{ width: '100%', height: '100%', display: 'block' }}
         >
-          {/* Background Map Canvas / Ground */}
+          {/* Ground */}
           <rect width="100%" height="100%" fill={mapType === 'STREET' ? '#f8fafc' : '#eef2f6'} />
 
-          {/* Green Parks / Forests (Baner Biodiversity Park & Pashan Hills) */}
+          {/* Green Reserves */}
           <path
             d={`M ${width * 0.05} ${height * 0.1} Q ${width * 0.2} ${height * 0.05} ${width * 0.28} ${height * 0.25} T ${width * 0.15} ${height * 0.4} Z`}
             fill="#dcfce7"
@@ -257,7 +279,7 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
             Vetal Tekdi Nature Reserve
           </text>
 
-          {/* Water Bodies (Mula-Mutha River & Pashan Lake) */}
+          {/* Water Bodies */}
           <path
             d={`M 0 ${height * 0.38} Q ${width * 0.3} ${height * 0.45} ${width * 0.55} ${height * 0.35} T ${width} ${height * 0.42}`}
             fill="none"
@@ -275,8 +297,7 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
             ~ Mula River ~
           </text>
 
-          {/* City Road Network (Clean Standard Cartography) */}
-          {/* Minor Roads */}
+          {/* City Road Network */}
           <g stroke="#ffffff" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round">
             <path d={`M ${width * 0.15} ${height * 0.15} L ${width * 0.85} ${height * 0.15}`} />
             <path d={`M ${width * 0.1} ${height * 0.7} L ${width * 0.9} ${height * 0.7}`} />
@@ -285,15 +306,12 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
             <path d={`M ${width * 0.2} ${height * 0.5} Q ${width * 0.5} ${height * 0.6} ${width * 0.8} ${height * 0.5}`} />
           </g>
 
-          {/* Secondary Arterials */}
           <g stroke="#cbd5e1" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-            {/* Baner Road */}
             <path d={`M ${width * 0.2} ${height * 0.75} L ${width * 0.65} ${height * 0.25}`} />
-            {/* Pashan-Sus Link Road */}
             <path d={`M ${width * 0.15} ${height * 0.35} Q ${width * 0.45} ${height * 0.45} ${width * 0.75} ${height * 0.65}`} />
           </g>
 
-          {/* Primary Highway: NH-48 Pune Bypass (Golden / Amber Road) */}
+          {/* NH-48 Pune Bypass */}
           <g stroke="#fde68a" strokeWidth="8" fill="none" strokeLinecap="round">
             <path d={`M ${width * 0.08} ${height * 0.92} Q ${width * 0.42} ${height * 0.52} ${width * 0.88} ${height * 0.08}`} />
           </g>
@@ -301,15 +319,10 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
             <path d={`M ${width * 0.08} ${height * 0.92} Q ${width * 0.42} ${height * 0.52} ${width * 0.88} ${height * 0.08}`} />
           </g>
 
-          {/* Road & Neighborhood Labels (Google Maps style) */}
+          {/* Street & Area Labels */}
           <text x={width * 0.52} y={height * 0.32} fill="#94a3b8" fontSize="11" fontWeight="700" letterSpacing="0.05em">
             NH-48 PUNE BYPASS
           </text>
-          <text x={width * 0.28} y={height * 0.6} fill="#64748b" fontSize="10">
-            Baner Main Road
-          </text>
-
-          {/* Local Area Names */}
           <text x={width * 0.22} y={height * 0.28} fill="#64748b" fontSize="12" fontWeight="700">
             BANER
           </text>
@@ -333,7 +346,6 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
             );
             return (
               <g>
-                {/* Route shadow */}
                 <line
                   x1={userPx.x}
                   y1={userPx.y}
@@ -343,7 +355,6 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
                   strokeWidth="8"
                   strokeLinecap="round"
                 />
-                {/* Clean Google Maps blue navigation route */}
                 <line
                   x1={userPx.x}
                   y1={userPx.y}
@@ -354,11 +365,10 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
                   strokeDasharray="6,4"
                   strokeLinecap="round"
                 />
-                {/* Distance Badge */}
                 <rect
-                  x={(userPx.x + hospPx.x) / 2 - 28}
+                  x={(userPx.x + hospPx.x) / 2 - 32}
                   y={(userPx.y + hospPx.y) / 2 - 12}
-                  width="56"
+                  width="64"
                   height="22"
                   rx="6"
                   fill="#ffffff"
@@ -380,13 +390,12 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
             );
           })()}
 
-          {/* Hospital Location Pins (Normal Google Maps Style Teardrop Markers) */}
+          {/* Hospital Location Pins */}
           {visibleHospitals.map(hosp => {
             const pos = projectToPixels(hosp.mapsCoord.lat, hosp.mapsCoord.lng, width, height);
             const isSelected = selectedHospital?.id === hosp.id;
             const isGov = hosp.type === 'GOVERNMENT';
             const isCharity = hosp.type === 'CHARITABLE_TRUST';
-            // Classic Clean Marker Colors
             const pinFill = isGov ? '#059669' : isCharity ? '#7c3aed' : '#0284c7';
 
             return (
@@ -399,12 +408,9 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
                 }}
                 style={{ cursor: 'pointer' }}
               >
-                {/* Ground Marker Shadow */}
                 <ellipse cx="0" cy="2" rx={isSelected ? 14 : 10} ry={isSelected ? 6 : 4} fill="rgba(0,0,0,0.2)" />
 
-                {/* Classic Google Maps Teardrop Pin */}
                 <g transform={isSelected ? 'scale(1.2) translate(0, -22)' : 'translate(0, -20)'}>
-                  {/* Pin Body */}
                   <path
                     d="M 0 0 C -12 -12, -12 -26, 0 -26 C 12 -26, 12 -12, 0 0 Z"
                     fill={pinFill}
@@ -412,7 +418,6 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
                     strokeWidth="2"
                     filter="drop-shadow(0 3px 6px rgba(0,0,0,0.3))"
                   />
-                  {/* Inner White Dot with Medical Cross */}
                   <circle cx="0" cy="-15" r="7" fill="#ffffff" />
                   <path
                     d="M -3 -15 L 3 -15 M 0 -18 L 0 -12"
@@ -422,41 +427,37 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
                   />
                 </g>
 
-                {/* Clean Hospital Name Label */}
                 <rect
-                  x="-55"
+                  x="-60"
                   y={isSelected ? 8 : 4}
-                  width="110"
-                  height="18"
+                  width="120"
+                  height="20"
                   rx="4"
                   fill="#ffffff"
                   stroke={isSelected ? pinFill : '#cbd5e1'}
-                  strokeWidth={isSelected ? '1.5' : '1'}
+                  strokeWidth={isSelected ? '2' : '1'}
                   filter="drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
                 />
                 <text
                   x="0"
-                  y={isSelected ? 20 : 16}
+                  y={isSelected ? 21 : 17}
                   textAnchor="middle"
                   fill="#1e293b"
                   fontSize="9.5"
-                  fontWeight={isSelected ? '700' : '600'}
+                  fontWeight={isSelected ? '800' : '600'}
                 >
-                  {hosp.name.split(' ')[0]} ({hosp.distanceKm}k)
+                  {hosp.name.split(' ')[0]} ({hosp.distanceKm}k) • {hosp.costProfile?.opdConsultFee === 10 || hosp.costProfile?.opdConsultFee === 20 ? '₹0' : `₹${hosp.costProfile?.opdConsultFee || 500}`}
                 </text>
               </g>
             );
           })}
 
-          {/* Normal User Location Pin (Google Maps Style Blue Dot) */}
+          {/* Normal User Location Pin */}
           <g transform={`translate(${userPx.x}, ${userPx.y})`}>
-            {/* Soft static blue halo */}
             <circle cx="0" cy="0" r="16" fill="rgba(37, 99, 235, 0.2)" />
-            {/* Inner solid blue dot */}
             <circle cx="0" cy="0" r="7" fill="#2563eb" stroke="#ffffff" strokeWidth="2.5" />
             <circle cx="0" cy="0" r="2.5" fill="#ffffff" />
 
-            {/* "You" Tag */}
             <rect
               x="-40"
               y="-26"
@@ -545,7 +546,7 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* Normal Legend Overlay */}
+        {/* Legend Overlay */}
         <div style={{
           position: 'absolute',
           bottom: '16px',
@@ -568,7 +569,7 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#059669' }} />
-            <span>Govt Apex (AIIMS)</span>
+            <span>Govt Apex (AIIMS / Civil)</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#7c3aed' }} />
@@ -576,17 +577,17 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Selected Hospital Location Card Popup */}
+        {/* Selected Hospital Location Card Popup (With Location, Cost, Care Triad Metrics) */}
         {selectedHospital && (
           <div style={{
             position: 'absolute',
             top: '16px',
             right: '16px',
-            width: '330px',
+            width: '340px',
             background: '#ffffff',
             border: '1px solid #cbd5e1',
             borderRadius: '10px',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)',
             padding: '16px',
             zIndex: 30,
             color: '#1e293b'
@@ -618,43 +619,71 @@ export const HospitalGeospatialMap: React.FC<Props> = ({
               </button>
             </div>
 
-            {/* Bed telemetry pills */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', margin: '10px 0', fontSize: '0.74rem' }}>
-              <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#64748b' }}>ICU Beds: </span>
-                <strong style={{ color: selectedHospital.bedTelemetry.icuAvailable > 0 ? '#16a34a' : '#dc2626' }}>
-                  {selectedHospital.bedTelemetry.icuAvailable} Free
-                </strong>
+            {/* Triad 3-Column Telemetry Box: Location, Cost, Care */}
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '8px 10px',
+              margin: '10px 0',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '6px',
+              textAlign: 'center',
+              fontSize: '0.72rem'
+            }}>
+              <div>
+                <div style={{ color: '#64748b', fontSize: '0.65rem' }}>📍 Near By</div>
+                <strong style={{ color: '#059669', fontSize: '0.85rem' }}>{selectedHospital.distanceKm} km</strong>
+                <div style={{ color: '#94a3b8', fontSize: '0.62rem' }}>~{Math.round(selectedHospital.distanceKm * 2.2)} mins</div>
               </div>
-              <div style={{ background: '#f8fafc', padding: '6px 8px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#64748b' }}>Ventilator: </span>
-                <strong style={{ color: '#0284c7' }}>
-                  {selectedHospital.bedTelemetry.ventilatorAvailable} Free
+              <div style={{ borderLeft: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0' }}>
+                <div style={{ color: '#64748b', fontSize: '0.65rem' }}>💰 Cost</div>
+                <strong style={{ color: '#10b981', fontSize: '0.85rem' }}>
+                  {selectedHospital.costProfile?.opdConsultFee ? `₹${selectedHospital.costProfile.opdConsultFee}` : '₹0'}
                 </strong>
+                <div style={{ color: '#94a3b8', fontSize: '0.62rem' }}>
+                  {selectedHospital.costProfile?.estOutOfPocketPercent === 0 ? '100% Free' : 'PM-JAY'}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: '#64748b', fontSize: '0.65rem' }}>🩺 Care Score</div>
+                <strong style={{ color: '#9333ea', fontSize: '0.85rem' }}>{selectedHospital.chikitsaCareScore}/100</strong>
+                <div style={{ color: '#94a3b8', fontSize: '0.62rem' }}>{selectedHospital.bedTelemetry.icuAvailable} ICU Free</div>
               </div>
             </div>
 
-            {/* Schemes */}
+            {/* Cost and Treatment Scope */}
             <div style={{ fontSize: '0.74rem', color: '#475569', marginBottom: '12px' }}>
-              <strong>Empanelled:</strong> {selectedHospital.acceptedGovSchemes.slice(0, 2).join(', ')}
+              <div><strong>Cost Scheme:</strong> {selectedHospital.costProfile?.approxTreatmentRange || 'PM-JAY Cashless'}</div>
+              <div style={{ color: '#64748b', marginTop: '2px' }}><strong>Empanelled:</strong> {selectedHospital.acceptedGovSchemes.slice(0, 2).join(', ')}</div>
             </div>
 
-            {/* Actions: OPD Booking & Ambulance Live Tracking */}
+            {/* Selection and Action Buttons */}
             <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+              <button
+                onClick={() => handleSelectHospitalClick(selectedHospital)}
+                className={confirmedSelectedId === selectedHospital.id ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
+                style={{ width: '100%', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700 }}
+              >
+                {confirmedSelectedId === selectedHospital.id ? (
+                  <>
+                    <CheckCircle2 size={14} color="#10b981" /> Selected as Primary Hospital
+                  </>
+                ) : (
+                  <>
+                    ✓ Select This Hospital & Book OPD
+                  </>
+                )}
+              </button>
+
               <button
                 onClick={() => onCallAmbulance(selectedHospital)}
                 className="btn btn-emergency btn-sm"
-                style={{ width: '100%', justifyContent: 'center', fontSize: '0.8rem' }}
-                title="Opens real-time animated GPS ambulance tracking"
+                style={{ width: '100%', justifyContent: 'center', fontSize: '0.78rem' }}
+                title="Opens live GPS ambulance tracking"
               >
-                🚑 {language === 'HI' ? 'एम्बुलेंस बुलाएं (लाइव ट्रैकिंग शुरू करें)' : 'Call Ambulance (Track Live on GPS)'}
-              </button>
-              <button
-                onClick={() => onSelectHospital(selectedHospital)}
-                className="btn btn-primary btn-sm"
-                style={{ width: '100%', justifyContent: 'center', fontSize: '0.8rem' }}
-              >
-                <Calendar size={13} /> {language === 'HI' ? 'ओपीडी टोकन बुक करें' : 'Book OPD Appointment'}
+                🚑 {language === 'HI' ? 'यहाँ से एम्बुलेंस बुलाएं (लाइव ट्रैक)' : 'Call Ambulance (Live Moving GPS Track)'}
               </button>
             </div>
           </div>

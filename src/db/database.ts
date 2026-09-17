@@ -174,7 +174,16 @@ class ChikitsaDatabase {
         { group: 'AB-', units: 2, isCriticallyLow: true },
         { group: 'O+', units: 42, isCriticallyLow: false },
         { group: 'O-', units: 3, isCriticallyLow: true }
-      ]
+      ],
+      costProfile: {
+        tier: 'PMJAY_CASHLESS_MODERATE',
+        tierLabel: 'PM-JAY 100% Cashless / Moderate Private',
+        opdConsultFee: 500,
+        pmjayCashlessCoverage: true,
+        estOutOfPocketPercent: 12,
+        costScore: 84,
+        approxTreatmentRange: '100% Cashless via PM-JAY / ₹4,000 Private Day'
+      }
     },
     {
       id: 'HOSP-02',
@@ -210,7 +219,16 @@ class ChikitsaDatabase {
         { group: 'AB-', units: 8, isCriticallyLow: false },
         { group: 'O+', units: 98, isCriticallyLow: false },
         { group: 'O-', units: 15, isCriticallyLow: false }
-      ]
+      ],
+      costProfile: {
+        tier: 'FREE_PUBLIC',
+        tierLabel: '100% Free Public Care (Zero Out-of-Pocket)',
+        opdConsultFee: 20,
+        pmjayCashlessCoverage: true,
+        estOutOfPocketPercent: 0,
+        costScore: 98,
+        approxTreatmentRange: '₹0 100% Free Government Treatment'
+      }
     },
     {
       id: 'HOSP-03',
@@ -246,7 +264,106 @@ class ChikitsaDatabase {
         { group: 'AB-', units: 1, isCriticallyLow: true },
         { group: 'O+', units: 20, isCriticallyLow: false },
         { group: 'O-', units: 2, isCriticallyLow: true }
-      ]
+      ],
+      costProfile: {
+        tier: 'SUBSIDIZED_CHARITABLE',
+        tierLabel: 'Subsidized Trust Grants & Concessions',
+        opdConsultFee: 150,
+        pmjayCashlessCoverage: true,
+        estOutOfPocketPercent: 8,
+        costScore: 91,
+        approxTreatmentRange: 'Subsidized Trust Rates / ₹1,200 General Bed'
+      }
+    },
+    {
+      id: 'HOSP-04',
+      name: 'District Civil & Government Super Specialty Hospital',
+      city: 'Pune',
+      state: 'Maharashtra',
+      type: 'GOVERNMENT',
+      distanceKm: 1.9,
+      rating: 4.7,
+      chikitsaCareScore: 92,
+      acceptedGovSchemes: ['100% Free Public Care', 'Ayushman Bharat PM-JAY', 'MJPJAY Maharashtra', 'Rashtriya Arogya Nidhi'],
+      emergency24x7: true,
+      contactNumber: '+91 20 2553 4400',
+      mapsCoord: { lat: 18.5480, lng: 73.7920 },
+      opdDepartments: ['Emergency Trauma', 'General Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics'],
+      bedTelemetry: {
+        icuTotal: 28,
+        icuAvailable: 9,
+        ventilatorTotal: 14,
+        ventilatorAvailable: 5,
+        oxygenBedsTotal: 90,
+        oxygenBedsAvailable: 34,
+        generalBedsTotal: 340,
+        generalBedsAvailable: 78,
+        lastTelemetryPing: '1 min ago'
+      },
+      bloodBankStock: [
+        { group: 'A+', units: 38, isCriticallyLow: false },
+        { group: 'A-', units: 8, isCriticallyLow: false },
+        { group: 'B+', units: 45, isCriticallyLow: false },
+        { group: 'B-', units: 7, isCriticallyLow: false },
+        { group: 'AB+', units: 19, isCriticallyLow: false },
+        { group: 'AB-', units: 4, isCriticallyLow: true },
+        { group: 'O+', units: 58, isCriticallyLow: false },
+        { group: 'O-', units: 9, isCriticallyLow: false }
+      ],
+      costProfile: {
+        tier: 'FREE_PUBLIC',
+        tierLabel: '100% Free Public Health Care',
+        opdConsultFee: 10,
+        pmjayCashlessCoverage: true,
+        estOutOfPocketPercent: 0,
+        costScore: 99,
+        approxTreatmentRange: '₹0 Free Public Government Hospital'
+      }
+    },
+    {
+      id: 'HOSP-05',
+      name: 'Ruby Hall Superspeciality & Oncology Center',
+      city: 'Pune',
+      state: 'Maharashtra',
+      type: 'PRIVATE_EMPANELLED',
+      distanceKm: 6.2,
+      rating: 4.9,
+      chikitsaCareScore: 97,
+      acceptedGovSchemes: ['Ayushman Bharat PM-JAY', 'Tata Trusts Empanelled', 'CGHS', 'ECHS', 'Corporate Insurance'],
+      emergency24x7: true,
+      contactNumber: '+91 20 6645 5000',
+      mapsCoord: { lat: 18.5289, lng: 73.8744 },
+      opdDepartments: ['Oncology', 'Cardiology', 'Neurology', 'Organ Transplant', 'Robotic Surgery'],
+      bedTelemetry: {
+        icuTotal: 60,
+        icuAvailable: 15,
+        ventilatorTotal: 32,
+        ventilatorAvailable: 9,
+        oxygenBedsTotal: 140,
+        oxygenBedsAvailable: 48,
+        generalBedsTotal: 450,
+        generalBedsAvailable: 92,
+        lastTelemetryPing: 'Just now'
+      },
+      bloodBankStock: [
+        { group: 'A+', units: 50, isCriticallyLow: false },
+        { group: 'A-', units: 12, isCriticallyLow: false },
+        { group: 'B+', units: 62, isCriticallyLow: false },
+        { group: 'B-', units: 10, isCriticallyLow: false },
+        { group: 'AB+', units: 25, isCriticallyLow: false },
+        { group: 'AB-', units: 6, isCriticallyLow: false },
+        { group: 'O+', units: 84, isCriticallyLow: false },
+        { group: 'O-', units: 12, isCriticallyLow: false }
+      ],
+      costProfile: {
+        tier: 'PMJAY_CASHLESS_MODERATE',
+        tierLabel: 'Super Specialty (PM-JAY Empanelled)',
+        opdConsultFee: 650,
+        pmjayCashlessCoverage: true,
+        estOutOfPocketPercent: 15,
+        costScore: 80,
+        approxTreatmentRange: 'PM-JAY Cashless / ₹5,500 Private Suite'
+      }
     }
   ];
 
