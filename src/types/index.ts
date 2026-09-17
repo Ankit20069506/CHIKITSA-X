@@ -370,3 +370,41 @@ export interface OTPVerificationState {
   isVerified: boolean;
   attempts: number;
 }
+
+export interface CSRCareProgram {
+  id: string;
+  corporateName: string;
+  corporateLogoText: string;
+  programTitle: string;
+  hindiTitle: string;
+  corporateTier: 'FORTUNE_INDIA_500' | 'CENTRAL_PSU' | 'GLOBAL_CORP';
+  annualCSRBudgetCrores: number;
+  maxGrantPerPatient: number;
+  focusAreas: Array<'ONCOLOGY_CANCER' | 'PEDIATRIC_CARDIAC' | 'ORGAN_TRANSPLANT' | 'KIDNEY_DIALYSIS' | 'RARE_DISEASE' | 'RURAL_TRAUMA'>;
+  coPayEligibleWithPMJAY: boolean;
+  criteria: string;
+  empanelledHospitals: string[];
+  nodalContact: string;
+  avgApprovalHours: number;
+}
+
+export interface CSRApplication {
+  id: string;
+  referenceNo: string;
+  patientName: string;
+  patientAbha: string;
+  corporateId: string;
+  corporateName: string;
+  treatmentName: string;
+  hospitalName: string;
+  totalHospitalBill: number;
+  pmjayOrInsuranceCover: number;
+  requestedCSRAmount: number;
+  sanctionedAmount: number;
+  status: 'SUBMITTED' | 'DOC_VERIFIED' | 'CSR_APPROVED' | 'DISBURSED_TO_HOSPITAL';
+  submissionDate: string;
+  sanctionDate?: string;
+  utrNumber?: string;
+  corporateReviewNotes?: string;
+}
+

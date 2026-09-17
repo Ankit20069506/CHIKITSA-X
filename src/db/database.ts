@@ -19,7 +19,9 @@ import type {
   HospitalBedTelemetry,
   DoctorProfile,
   PatientRegistrationForm,
-  DoctorRegistrationForm
+  DoctorRegistrationForm,
+  CSRCareProgram,
+  CSRApplication
 } from '../types';
 
 class ChikitsaDatabase {
@@ -847,6 +849,167 @@ class ChikitsaDatabase {
   getNGOGrants(): NGOGrantProgram[] {
     return [...this.ngoGrants];
   }
+
+  // Corporate CSR Healthcare Sponsorship Programs (Companies Act Sec 135)
+  private csrPrograms: CSRCareProgram[] = [
+    {
+      id: 'CSR-TATA-01',
+      corporateName: 'Tata Trusts & Tata Sons CSR',
+      corporateLogoText: 'TATA',
+      programTitle: 'Tata Medical Relief & Critical Oncology Corpus',
+      hindiTitle: 'टाटा ट्रस्ट्स मेडिकल रिलीफ व ऑन्कोलॉजी कॉर्पस',
+      corporateTier: 'FORTUNE_INDIA_500',
+      annualCSRBudgetCrores: 35,
+      maxGrantPerPatient: 350000,
+      focusAreas: ['ONCOLOGY_CANCER', 'PEDIATRIC_CARDIAC', 'ORGAN_TRANSPLANT'],
+      coPayEligibleWithPMJAY: true,
+      criteria: 'BPL / EWS families, annual income < ₹3.5 Lakhs, covering advanced chemotherapy and bone marrow transplants',
+      empanelledHospitals: ['Tata Memorial Hospital, Mumbai', 'CarePlus Multi-Specialty Hospital', 'KEM Hospital, Pune'],
+      nodalContact: 'csr.health@tatatrusts.org • 1800-22-8282',
+      avgApprovalHours: 24
+    },
+    {
+      id: 'CSR-RELIANCE-02',
+      corporateName: 'Reliance Foundation Mission Amrit CSR',
+      corporateLogoText: 'RELIANCE',
+      programTitle: 'Mission Amrit: Organ Transplant & Pediatric Surgery Fund',
+      hindiTitle: 'रिलायंस फाउंडेशन मिशन अमृत: अंग प्रत्यारोपण व बाल शल्यचिकित्सा',
+      corporateTier: 'FORTUNE_INDIA_500',
+      annualCSRBudgetCrores: 50,
+      maxGrantPerPatient: 450000,
+      focusAreas: ['ORGAN_TRANSPLANT', 'PEDIATRIC_CARDIAC', 'RARE_DISEASE'],
+      coPayEligibleWithPMJAY: true,
+      criteria: 'Direct grant for liver/renal transplant co-payments and congenital heart defect corrections in infants',
+      empanelledHospitals: ['Sir H.N. Reliance Foundation Hospital', 'Ruby Hall Clinic, Pune', 'CarePlus Hospital'],
+      nodalContact: 'mission.amrit@reliancefoundation.org • 1800-419-8800',
+      avgApprovalHours: 18
+    },
+    {
+      id: 'CSR-INFOSYS-03',
+      corporateName: 'Infosys Foundation Healthcare CSR',
+      corporateLogoText: 'INFOSYS',
+      programTitle: 'Aarogya Samriddhi Dialysis & Critical Renal Grant',
+      hindiTitle: 'इन्फोसिस फाउंडेशन आरोग्य समृद्धि: डायलिसिस व रीनल ग्रांट',
+      corporateTier: 'FORTUNE_INDIA_500',
+      annualCSRBudgetCrores: 22,
+      maxGrantPerPatient: 250000,
+      focusAreas: ['KIDNEY_DIALYSIS', 'RURAL_TRAUMA'],
+      coPayEligibleWithPMJAY: true,
+      criteria: 'End-Stage Renal Disease (ESRD) patients needing arteriovenous (AV) fistula and long-term hemodialysis cycles',
+      empanelledHospitals: ['CarePlus Multi-Specialty', 'Jayadeva Institute', 'Manipal Hospitals'],
+      nodalContact: 'healthcare.csr@infosys.com • 080-2852-0261',
+      avgApprovalHours: 12
+    },
+    {
+      id: 'CSR-ADANI-04',
+      corporateName: 'Adani Foundation SuSwasthya CSR',
+      corporateLogoText: 'ADANI',
+      programTitle: 'SuSwasthya Emergency Trauma & Critical Neonatal Fund',
+      hindiTitle: 'अदाणी फाउंडेशन सुस्वास्थ्य: इमरजेंसी ट्रॉमा व नवजात शिशु देखभाल',
+      corporateTier: 'FORTUNE_INDIA_500',
+      annualCSRBudgetCrores: 18,
+      maxGrantPerPatient: 200000,
+      focusAreas: ['RURAL_TRAUMA', 'PEDIATRIC_CARDIAC'],
+      coPayEligibleWithPMJAY: true,
+      criteria: 'Emergency trauma resuscitation, pediatric NICU admissions, and acute orthopedic poly-trauma stabilization',
+      empanelledHospitals: ['CarePlus Hospital', 'GAIMS Bhuj', 'Apollo Hospitals'],
+      nodalContact: 'suswasthya@adanifoundation.org • 1800-233-0000',
+      avgApprovalHours: 8
+    },
+    {
+      id: 'CSR-AZIMPREMJI-05',
+      corporateName: 'Azim Premji Philanthropic Initiatives',
+      corporateLogoText: 'WIPRO-APPI',
+      programTitle: 'Rare Diseases & Lifelong Pediatric Care Corpus',
+      hindiTitle: 'अजीम प्रेमजी फाउंडेशन: दुर्लभ रोग व आजीवन बाल स्वास्थ्य कोष',
+      corporateTier: 'GLOBAL_CORP',
+      annualCSRBudgetCrores: 40,
+      maxGrantPerPatient: 500000,
+      focusAreas: ['RARE_DISEASE', 'ONCOLOGY_CANCER'],
+      coPayEligibleWithPMJAY: true,
+      criteria: 'Rare lysosomal storage disorders, spinal muscular atrophy (SMA), and pediatric neuroblastoma treatment',
+      empanelledHospitals: ['NIMHANS', 'CarePlus Hospital', 'AIIMS New Delhi'],
+      nodalContact: 'grants@azimpremjifoundation.org • 080-6614-4900',
+      avgApprovalHours: 24
+    }
+  ];
+
+  // In-memory active CSR applications
+  private csrApplications: CSRApplication[] = [
+    {
+      id: 'CSR-APP-001',
+      referenceNo: 'CSR-2026-TATA-9102',
+      patientName: 'Ankit Patel',
+      patientAbha: '14-2026-9812-4401',
+      corporateId: 'CSR-TATA-01',
+      corporateName: 'Tata Trusts Medical Relief',
+      treatmentName: 'Coronary Angioplasty with Drug-Eluting Stents',
+      hospitalName: 'CarePlus Tertiary Heart Hospital',
+      totalHospitalBill: 220000,
+      pmjayOrInsuranceCover: 160000,
+      requestedCSRAmount: 60000,
+      sanctionedAmount: 60000,
+      status: 'CSR_APPROVED',
+      submissionDate: '2026-02-28',
+      sanctionDate: '2026-03-01',
+      utrNumber: 'UTR-HDFC-9912048129',
+      corporateReviewNotes: 'Pre-auth approved under Section 135 CSR Healthcare Corpus. Direct disbursement sanctioned to hospital billing desk.'
+    }
+  ];
+
+  getCSRPrograms(): CSRCareProgram[] {
+    return [...this.csrPrograms];
+  }
+
+  getCSRApplications(): CSRApplication[] {
+    return [...this.csrApplications];
+  }
+
+  submitCSRApplication(app: {
+    patientName: string;
+    patientAbha: string;
+    corporateId: string;
+    corporateName: string;
+    treatmentName: string;
+    hospitalName: string;
+    totalHospitalBill: number;
+    pmjayOrInsuranceCover: number;
+    requestedCSRAmount: number;
+  }): CSRApplication {
+    const ref = `CSR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newApp: CSRApplication = {
+      id: `CSR-APP-${Math.floor(100 + Math.random() * 900)}`,
+      referenceNo: ref,
+      patientName: app.patientName,
+      patientAbha: app.patientAbha,
+      corporateId: app.corporateId,
+      corporateName: app.corporateName,
+      treatmentName: app.treatmentName,
+      hospitalName: app.hospitalName,
+      totalHospitalBill: app.totalHospitalBill,
+      pmjayOrInsuranceCover: app.pmjayOrInsuranceCover,
+      requestedCSRAmount: app.requestedCSRAmount,
+      sanctionedAmount: app.requestedCSRAmount,
+      status: 'CSR_APPROVED',
+      submissionDate: new Date().toISOString().split('T')[0],
+      sanctionDate: new Date().toISOString().split('T')[0],
+      utrNumber: `UTR-CSR-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+      corporateReviewNotes: `Fast-track approved under Corporate Social Responsibility (Sec 135). Amount credited to ${app.hospitalName} billing desk.`
+    };
+
+    this.csrApplications.unshift(newApp);
+    this.addAuditLog({
+      actor: app.patientName,
+      actorRole: 'PATIENT',
+      action: 'CSR_SPONSORSHIP_SANCTION',
+      resourceTarget: newApp.referenceNo,
+      details: `CSR grant of ₹${app.requestedCSRAmount.toLocaleString()} sanctioned by ${app.corporateName} for ${app.treatmentName} at ${app.hospitalName}.`,
+      abdmComplianceTag: 'ABDM-M2-CSR-SPONSORSHIP'
+    });
+    this.notify('csr');
+    return newApp;
+  }
+
 
   // Real-time Pub/Sub Event Bus
   private listeners: Map<string, Set<() => void>> = new Map();

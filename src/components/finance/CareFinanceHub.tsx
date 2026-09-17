@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type {
   AppLanguage,
   GovSchemeInfo,
   InsurancePolicyClaim,
   NGOGrantProgram,
-  CareCostAssessment
+  CareCostAssessment,
+  CSRCareProgram,
+  CSRApplication
 } from '../../types';
 import { db } from '../../db/database';
 import {
@@ -25,9 +27,14 @@ import {
   DollarSign,
   ChevronRight,
   Shield,
-  HelpCircle
+  HelpCircle,
+  Award,
+  Briefcase,
+  TrendingUp,
+  Plus
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { CSRApplicationModal } from './CSRApplicationModal';
 
 interface Props {
   language: AppLanguage;
@@ -56,10 +63,23 @@ export const CareFinanceHub: React.FC<Props> = ({
   const [preAuthSuccess, setPreAuthSuccess] = useState<InsurancePolicyClaim | null>(null);
   const [isPreAuthSubmitting, setIsPreAuthSubmitting] = useState<boolean>(false);
 
-  // NGO Grants State
+  // NGO & CSR State
   const ngoGrants = db.getNGOGrants();
   const [ngoCategoryFilter, setNgoCategoryFilter] = useState<string>('ALL');
   const [appliedGrantId, setAppliedGrantId] = useState<string | null>(null);
+  const [csrPrograms, setCsrPrograms] = useState<CSRCareProgram[]>(() => db.getCSRPrograms());
+  const [csrApplications, setCsrApplications] = useState<CSRApplication[]>(() => db.getCSRApplications());
+  const [isCSRModalOpen, setIsCSRModalOpen] = useState<boolean>(false);
+  const [selectedCSRForModal, setSelectedCSRForModal] = useState<CSRCareProgram | null>(null);
+  const [ngoSubTab, setNgoSubTab] = useState<'CSR_CORPORATE' | 'CHARITABLE_TRUSTS' | 'MY_APPLICATIONS' | 'CO_FUNDING'>('CSR_CORPORATE');
+
+  useEffect(() => {
+    const unsub = db.subscribe('csr', () => {
+      setCsrApplications(db.getCSRApplications());
+      setCsrPrograms(db.getCSRPrograms());
+    });
+    return unsub;
+  }, []);
 
   // Multi-Scheme Stacking State
   const [procedureCost, setProcedureCost] = useState<number>(220000);
@@ -165,7 +185,7 @@ export const CareFinanceHub: React.FC<Props> = ({
         {[
           { id: 'SCHEMES', icon: Building2, label: language === 'HI' ? '🏛️ सरकारी योजनाएं (PM-JAY / RAN)' : '🏛️ Government Schemes (PM-JAY & State)' },
           { id: 'INSURANCE', icon: ShieldCheck, label: language === 'HI' ? '🛡️ स्वास्थ्य बीमा व TPA कैशलेस' : '🛡️ Health Insurance & Cashless TPA' },
-          { id: 'NGO', icon: HeartHandshake, label: language === 'HI' ? '🤝 एनजीओ व चैरिटेबल ट्रस्ट' : '🤝 NGO & Charitable Trust Relief' },
+          { id: 'NGO', icon: HeartHandshake, label: language === 'HI' ? '🤝 एनजीओ व कॉर्पोरेट CSR केयर' : '🤝 NGO & Corporate CSR Care' },
           { id: 'STACKING', icon: CreditCard, label: language === 'HI' ? '💳 बिल स्टैकिंग व 0% ईएमआई' : '💳 Multi-Scheme Stacking & 0% EMI' }
         ].map(tab => {
           const Icon = tab.icon;
@@ -492,112 +512,479 @@ export const CareFinanceHub: React.FC<Props> = ({
         </div>
       )}
 
-      {/* TAB 3: NGO & CHARITABLE TRUST RELIEF */}
+      {/* TAB 3: NGO & CORPORATE CSR CARE SUPPORT */}
       {activeTab === 'NGO' && (
         <div>
-          {/* NGO Filter Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
-              Verified Charitable Trusts & Humanitarian Medical Relief:
+          {/* Top CSR & NGO Metrics Header */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.12) 0%, rgba(2, 132, 199, 0.08) 100%)',
+            border: '1px solid rgba(147, 51, 234, 0.3)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '24px 28px',
+            marginBottom: '24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '20px'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span className="badge badge-purple" style={{ fontSize: '0.72rem' }}>SECTION 135 COMPANIES ACT</span>
+                <span className="live-dot" style={{ backgroundColor: '#10b981' }} />
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Direct Hospital Billing Credit</span>
+              </div>
+              <h3 style={{ margin: '0 0 4px', fontSize: '1.4rem', fontWeight: 800 }}>
+                {language === 'HI'
+                  ? 'कॉर्पोरेट सीएसआर (CSR) व एनजीओ मेडिकल सहायता केंद्र'
+                  : 'Corporate CSR & Humanitarian NGO Healthcare Support Hub'}
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-secondary)', maxWidth: '680px' }}>
+                {language === 'HI'
+                  ? 'टाटा ट्रस्ट्स, रिलायंस फाउंडेशन व इन्फोसिस जैसी अग्रणी कंपनियों के सीएसआर फंड द्वारा गंभीर बीमारियों (कैंसर, बाल हृदय रोग, अंग प्रत्यारोपण) हेतु सीधे अस्पताल खाते में अनुदान।'
+                  : 'Empowering BPL & critical illness patients with direct hospital sponsorships from Tata Trusts, Reliance Foundation, Infosys Foundation & verified NGOs.'}
+              </p>
             </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {[
-                { id: 'ALL', label: 'All Grants' },
-                { id: 'CANCER', label: 'Cancer Care' },
-                { id: 'CARDIAC_PEDIATRIC', label: 'Child Heart Surgeries' },
-                { id: 'KIDNEY_DIALYSIS', label: 'Kidney Dialysis' },
-                { id: 'GENERAL_BPL', label: 'BPL Relief' }
-              ].map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => setNgoCategoryFilter(cat.id)}
-                  className={ngoCategoryFilter === cat.id ? 'btn btn-purple btn-sm' : 'btn btn-secondary btn-sm'}
-                  style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-                >
-                  {cat.label}
-                </button>
-              ))}
+
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => {
+                  setSelectedCSRForModal(null);
+                  setIsCSRModalOpen(true);
+                }}
+                className="btn btn-purple"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontWeight: 700 }}
+              >
+                <Plus size={16} />
+                {language === 'HI' ? '+ सीएसआर सहायता आवेदन करें' : '+ Apply for Corporate CSR Aid'}
+              </button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px' }}>
-            {filteredNGOs.map(ngo => {
-              const isApplied = appliedGrantId === ngo.id;
-              return (
+          {/* Key Metrics Counters */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '14px',
+            marginBottom: '22px'
+          }}>
+            <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid #9333ea' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Total CSR Healthcare Corpus</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#9333ea', marginTop: '2px' }}>₹185 Crores</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Sec 135 Mandatory Reserves</div>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid #10b981' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Direct Hospital Disbursements</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>₹42.8 Crores</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>100% Cashless to Hospital Desk</div>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid var(--medical-blue)' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Critical Lives Supported</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--medical-blue)', marginTop: '2px' }}>1,840+ Patients</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Oncology & Pediatric Cardiac</div>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '16px', borderLeft: '4px solid var(--warning-amber)' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>My CSR Applications</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--warning-amber)', marginTop: '2px' }}>{csrApplications.length} Sanctioned</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>Active Beneficiary Pass</div>
+            </div>
+          </div>
+
+          {/* CSR / NGO Sub-Navigation Tabs */}
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            borderBottom: '1px solid var(--border-subtle)',
+            paddingBottom: '12px',
+            marginBottom: '20px',
+            overflowX: 'auto'
+          }}>
+            {[
+              { id: 'CSR_CORPORATE', label: language === 'HI' ? '🏢 कॉर्पोरेट सीएसआर फंड (Sec 135)' : '🏢 Corporate CSR Sponsorships' },
+              { id: 'CHARITABLE_TRUSTS', label: language === 'HI' ? '🤝 चैरिटेबल ट्रस्ट व एनजीओ' : '🤝 Humanitarian NGO Grants' },
+              { id: 'MY_APPLICATIONS', label: language === 'HI' ? `📋 मेरे आवेदन व स्वीकृति पत्र (${csrApplications.length})` : `📋 My CSR Applications (${csrApplications.length})` },
+              { id: 'CO_FUNDING', label: language === 'HI' ? '🛡️ PM-JAY + CSR जीरो-गैप सुरक्षा' : '🛡️ PM-JAY + CSR Zero-Gap Matrix' }
+            ].map(sub => (
+              <button
+                key={sub.id}
+                onClick={() => setNgoSubTab(sub.id as any)}
+                className={ngoSubTab === sub.id ? 'btn btn-purple btn-sm' : 'btn btn-secondary btn-sm'}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {sub.label}
+              </button>
+            ))}
+          </div>
+
+          {/* SUBTAB 1: CORPORATE CSR PROGRAMS */}
+          {ngoSubTab === 'CSR_CORPORATE' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px' }}>
+              {csrPrograms.map(prog => (
                 <div
-                  key={ngo.id}
+                  key={prog.id}
                   className="glass-panel"
                   style={{
-                    padding: '22px',
+                    padding: '24px',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    borderLeft: '4px solid #9333ea'
+                    borderLeft: '4px solid #9333ea',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                       <div>
-                        <span className="badge badge-purple" style={{ fontSize: '0.68rem', marginBottom: '6px' }}>
-                          {ngo.focusArea.replace('_', ' ')}
-                        </span>
-                        <h4 style={{ margin: '4px 0 2px', fontSize: '1.1rem', fontWeight: 800 }}>
-                          {ngo.orgName}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                          <span className="badge badge-purple" style={{ fontSize: '0.66rem' }}>
+                            {prog.corporateLogoText}
+                          </span>
+                          <span className="badge badge-teal" style={{ fontSize: '0.64rem' }}>
+                            {prog.corporateTier.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <h4 style={{ margin: '2px 0', fontSize: '1.15rem', fontWeight: 800 }}>
+                          {prog.corporateName}
                         </h4>
                         <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--medical-blue)' }}>
-                          {ngo.programTitle}
+                          {prog.programTitle}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {ngo.hindiTitle}
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {prog.hindiTitle}
                         </div>
                       </div>
 
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Max Grant Aid</div>
-                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-green)' }}>
-                          ₹{ngo.maxGrantAmount.toLocaleString()}
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Max Grant / Patient</div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#10b981' }}>
+                          ₹{prog.maxGrantPerPatient.toLocaleString()}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', marginBottom: '12px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      <strong>Criteria:</strong> {ngo.criteria}
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                      {prog.focusAreas.map(f => (
+                        <span key={f} style={{
+                          fontSize: '0.68rem',
+                          background: 'rgba(2, 132, 199, 0.1)',
+                          color: 'var(--medical-blue)',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontWeight: 600
+                        }}>
+                          {f.replace(/_/g, ' ')}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div style={{
+                      background: 'var(--bg-secondary)',
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      marginBottom: '12px',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-secondary)'
+                    }}>
+                      <strong>Criteria:</strong> {prog.criteria}
                     </div>
 
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
-                      <div>Contact: {ngo.trustContact}</div>
-                      <div>Turnaround: <strong>{ngo.turnaroundTime}</strong> • Officer: {ngo.verificationOfficer}</div>
+                      <div>Empanelled: <strong>{prog.empanelledHospitals.join(', ')}</strong></div>
+                      <div>Contact: {prog.nodalContact}</div>
+                      <div>Fast-Track Approval: <strong>⚡ ~{prog.avgApprovalHours} Hours</strong></div>
                     </div>
                   </div>
 
                   <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 600 }}>
+                      ✓ Stacks with PM-JAY ₹5L
+                    </div>
                     <button
-                      onClick={() => onOpenCrowdfunding && onOpenCrowdfunding()}
-                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        setSelectedCSRForModal(prog);
+                        setIsCSRModalOpen(true);
+                      }}
+                      className="btn btn-purple btn-sm"
                     >
-                      Emergency Crowdfund
-                    </button>
-
-                    <button
-                      onClick={() => handleApplyGrant(ngo.id)}
-                      disabled={isApplied}
-                      className={isApplied ? 'btn btn-green btn-sm' : 'btn btn-purple btn-sm'}
-                    >
-                      {isApplied ? (
-                        <>
-                          <CheckCircle2 size={14} /> Application Submitted
-                        </>
-                      ) : (
-                        <>
-                          Apply for NGO Grant <ChevronRight size={14} />
-                        </>
-                      )}
+                      Apply for CSR Aid <ChevronRight size={14} />
                     </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {/* SUBTAB 2: CHARITABLE TRUSTS */}
+          {ngoSubTab === 'CHARITABLE_TRUSTS' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                  Verified Charitable Trusts & Humanitarian Relief:
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {[
+                    { id: 'ALL', label: 'All Grants' },
+                    { id: 'CANCER', label: 'Cancer Care' },
+                    { id: 'CARDIAC_PEDIATRIC', label: 'Child Heart Surgeries' },
+                    { id: 'KIDNEY_DIALYSIS', label: 'Kidney Dialysis' },
+                    { id: 'GENERAL_BPL', label: 'BPL Relief' }
+                  ].map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setNgoCategoryFilter(cat.id)}
+                      className={ngoCategoryFilter === cat.id ? 'btn btn-purple btn-sm' : 'btn btn-secondary btn-sm'}
+                      style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px' }}>
+                {filteredNGOs.map(ngo => {
+                  const isApplied = appliedGrantId === ngo.id;
+                  return (
+                    <div
+                      key={ngo.id}
+                      className="glass-panel"
+                      style={{
+                        padding: '22px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        borderLeft: '4px solid #9333ea'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                          <div>
+                            <span className="badge badge-purple" style={{ fontSize: '0.68rem', marginBottom: '6px' }}>
+                              {ngo.focusArea.replace('_', ' ')}
+                            </span>
+                            <h4 style={{ margin: '4px 0 2px', fontSize: '1.1rem', fontWeight: 800 }}>
+                              {ngo.orgName}
+                            </h4>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--medical-blue)' }}>
+                              {ngo.programTitle}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {ngo.hindiTitle}
+                            </div>
+                          </div>
+
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Max Grant Aid</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-green)' }}>
+                              ₹{ngo.maxGrantAmount.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ background: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', marginBottom: '12px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                          <strong>Criteria:</strong> {ngo.criteria}
+                        </div>
+
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
+                          <div>Contact: {ngo.trustContact}</div>
+                          <div>Turnaround: <strong>{ngo.turnaroundTime}</strong> • Officer: {ngo.verificationOfficer}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <button
+                          onClick={() => onOpenCrowdfunding && onOpenCrowdfunding()}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          Emergency Crowdfund
+                        </button>
+
+                        <button
+                          onClick={() => handleApplyGrant(ngo.id)}
+                          disabled={isApplied}
+                          className={isApplied ? 'btn btn-green btn-sm' : 'btn btn-purple btn-sm'}
+                        >
+                          {isApplied ? (
+                            <>
+                              <CheckCircle2 size={14} /> Application Submitted
+                            </>
+                          ) : (
+                            <>
+                              Apply for NGO Grant <ChevronRight size={14} />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* SUBTAB 3: MY APPLICATIONS & SANCTION LETTERS */}
+          {ngoSubTab === 'MY_APPLICATIONS' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>
+                  Active CSR Grant Applications & Disbursement Letters:
+                </h4>
+                <button
+                  onClick={() => {
+                    setSelectedCSRForModal(null);
+                    setIsCSRModalOpen(true);
+                  }}
+                  className="btn btn-purple btn-sm"
+                >
+                  <Plus size={14} /> New CSR Request
+                </button>
+              </div>
+
+              {csrApplications.map(app => (
+                <div
+                  key={app.id}
+                  className="glass-panel"
+                  style={{
+                    padding: '20px',
+                    borderLeft: '5px solid #10b981',
+                    background: 'var(--bg-card)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="badge badge-teal" style={{ fontSize: '0.72rem' }}>
+                          ✓ SANCTIONED & CREDITED
+                        </span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          Ref: <strong style={{ color: '#9333ea' }}>{app.referenceNo}</strong>
+                        </span>
+                      </div>
+                      <h4 style={{ margin: '6px 0 2px', fontSize: '1.2rem', fontWeight: 800 }}>
+                        {app.corporateName}
+                      </h4>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        Procedure: <strong>{app.treatmentName}</strong> at <strong>{app.hospitalName}</strong>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Sanctioned CSR Amount</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981' }}>
+                        ₹{app.sanctionedAmount.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '12px',
+                    background: 'var(--bg-secondary)',
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                    marginBottom: '12px',
+                    fontSize: '0.82rem'
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Patient Beneficiary:</span>
+                      <div style={{ fontWeight: 600 }}>{app.patientName}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>ABHA Health ID:</span>
+                      <div style={{ fontWeight: 600, color: 'var(--medical-blue)' }}>{app.patientAbha}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Disbursement UTR:</span>
+                      <div style={{ fontWeight: 600, color: '#9333ea' }}>{app.utrNumber}</div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Hospital Billing Desk:</span>
+                      <div style={{ fontWeight: 600, color: '#10b981' }}>Direct Account Credit</div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    fontSize: '0.8rem',
+                    color: 'var(--text-secondary)',
+                    lineHeight: 1.5,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}>
+                    <div>
+                      <strong>Corporate Review:</strong> {app.corporateReviewNotes}
+                    </div>
+                    <span className="badge badge-green" style={{ fontSize: '0.74rem' }}>
+                      Official Section 135 Sanction Active
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* SUBTAB 4: ZERO-GAP CO-FUNDING MATRIX */}
+          {ngoSubTab === 'CO_FUNDING' && (
+            <div className="glass-panel" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                <ShieldCheck size={24} color="#10b981" />
+                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>
+                  Zero-Gap Medical Protection: Stacking PM-JAY & Corporate CSR
+                </h3>
+              </div>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
+                High-end super-specialty treatments (e.g. Bone Marrow Transplants, Chemotherapy, Pediatric Cardiac Surgeries) often cost ₹8–₹15 Lakhs, exceeding PM-JAY’s ₹5 Lakh ceiling. CHIKITSA-X automatically stacks PM-JAY with Section 135 Corporate CSR funds to achieve 100% cashless coverage.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                <div style={{ background: 'var(--bg-secondary)', padding: '18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Case Study 1: Pediatric Heart Repair</div>
+                  <h4 style={{ margin: '6px 0 10px', fontSize: '1.1rem' }}>Congenital Heart Defect (VSD)</h4>
+                  <div style={{ fontSize: '0.85rem', lineHeight: 1.7 }}>
+                    <div>• Total Hospital Cost: <strong>₹3,20,000</strong></div>
+                    <div>• PM-JAY Package Cover: <strong style={{ color: 'var(--medical-blue)' }}>₹2,00,000</strong></div>
+                    <div>• Reliance Mission Amrit CSR: <strong style={{ color: '#9333ea' }}>₹1,20,000</strong></div>
+                    <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '6px', marginTop: '6px', fontWeight: 800, color: '#10b981' }}>
+                      = Patient Out-Of-Pocket: ₹0 (100% Cashless)
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-secondary)', padding: '18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Case Study 2: Oncology Chemotherapy</div>
+                  <h4 style={{ margin: '6px 0 10px', fontSize: '1.1rem' }}>Acute Myeloid Leukemia (AML)</h4>
+                  <div style={{ fontSize: '0.85rem', lineHeight: 1.7 }}>
+                    <div>• Total Protocol Cost: <strong>₹8,50,000</strong></div>
+                    <div>• Ayushman Bharat PM-JAY: <strong style={{ color: 'var(--medical-blue)' }}>₹5,00,000</strong></div>
+                    <div>• Tata Trusts Oncology Grant: <strong style={{ color: '#9333ea' }}>₹3,50,000</strong></div>
+                    <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '6px', marginTop: '6px', fontWeight: 800, color: '#10b981' }}>
+                      = Patient Out-Of-Pocket: ₹0 (100% Cashless)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CSR Application Modal */}
+          {isCSRModalOpen && (
+            <CSRApplicationModal
+              language={language}
+              selectedProgram={selectedCSRForModal}
+              onClose={() => setIsCSRModalOpen(false)}
+              onSuccess={() => {
+                setIsCSRModalOpen(false);
+                setNgoSubTab('MY_APPLICATIONS');
+              }}
+            />
+          )}
         </div>
       )}
 
