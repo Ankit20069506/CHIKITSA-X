@@ -17,6 +17,7 @@ import { HospitalPassQRModal } from './HospitalPassQRModal';
 import { EmergencyRadarModal } from '../common/EmergencyRadarModal';
 import { VoiceIntakeView } from './VoiceIntakeView';
 import { VoiceIntakeModal } from './VoiceIntakeModal';
+import { CareFinanceHub } from '../finance/CareFinanceHub';
 import { Mic, Sparkles, ArrowRight } from 'lucide-react';
 
 interface Props {
@@ -55,7 +56,7 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
           { id: 'AI_INTAKE', label: language === 'HI' ? 'लक्षण एवं एआई निदान' : 'Interactive Body Map & AI Triage' },
           { id: 'QUEUE', label: language === 'HI' ? 'लाइव ओपीडी टोकन' : 'Live OPD Queue & Pass' },
           { id: 'ABHA', label: language === 'HI' ? 'आभा 2.0 हेल्थ वॉलेट' : 'ABHA 2.0 & FHIR Records' },
-          { id: 'FINTECH', label: language === 'HI' ? 'केयर-टू-कॉस्ट एवं ईएमआई' : 'Care-to-Cost 2.0 & Schemes' },
+          { id: 'FINTECH', label: language === 'HI' ? '🏛️ योजनाएं, बीमा व एनजीओ' : '🏛️ Schemes, Insurance & NGO' },
           { id: 'HOSPITALS', label: language === 'HI' ? 'अस्पताल खोजक' : 'Empaneled Hospitals' },
           { id: 'LABS', label: language === 'HI' ? 'लैब बायोमार्कर' : 'Lab Biomarker Analyzer' },
           { id: 'MEDICINES', label: language === 'HI' ? 'जन औषधि जेनरिक बचत' : 'Jan Aushadhi Generic Savings' },
@@ -196,7 +197,7 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
       )}
 
       {activeSubTab === 'FINTECH' && (
-        <CareToCostEngineV2
+        <CareFinanceHub
           language={language}
           onOpenEMI={(gap) => setEmiGapAmount(gap)}
           onOpenCrowdfunding={() => setIsCrowdfundingOpen(true)}

@@ -216,3 +216,45 @@ export interface VoiceIntakeRecord {
   clinicalImpression: string;
   confidenceScore: number; // e.g. 94%
 }
+
+export interface GovSchemeInfo {
+  id: string;
+  name: string;
+  hindiName: string;
+  level: 'CENTRAL' | 'STATE';
+  state?: string;
+  maxCoverAmount: number;
+  eligibleCategory: string;
+  keyBenefits: string[];
+  requiredDocs: string[];
+  applicationPortalUrl: string;
+  tollFreeHelpline: string;
+  isEligibleDemo: boolean;
+}
+
+export interface InsurancePolicyClaim {
+  id: string;
+  insurerName: string;
+  policyNumber: string;
+  sumInsured: number;
+  remainingSum: number;
+  coPayPercent: number;
+  tpaName: string;
+  preAuthStatus: 'APPROVED' | 'IN_REVIEW' | 'DOCUMENT_REQUIRED' | 'SETTLED';
+  sanctionedAmount: number;
+  claimReferenceNo: string;
+  lastUpdated: string;
+}
+
+export interface NGOGrantProgram {
+  id: string;
+  orgName: string;
+  programTitle: string;
+  hindiTitle: string;
+  focusArea: 'CANCER' | 'CARDIAC_PEDIATRIC' | 'KIDNEY_DIALYSIS' | 'GENERAL_BPL';
+  maxGrantAmount: number;
+  criteria: string;
+  trustContact: string;
+  verificationOfficer: string;
+  turnaroundTime: string;
+}

@@ -10,7 +10,10 @@ import type {
   MedicalEMIOption,
   CrowdfundingCampaign,
   SOAPClinicalNote,
-  VoiceIntakeRecord
+  VoiceIntakeRecord,
+  GovSchemeInfo,
+  InsurancePolicyClaim,
+  NGOGrantProgram
 } from '../types';
 
 class ChikitsaDatabase {
@@ -613,6 +616,199 @@ class ChikitsaDatabase {
     };
     this.voiceIntakeHistory.unshift(newRecord);
     return newRecord;
+  }
+
+  // Government Health Schemes Data
+  private govSchemes: GovSchemeInfo[] = [
+    {
+      id: 'GOV-SCHEME-01',
+      name: 'Ayushman Bharat PM-JAY',
+      hindiName: 'आयुष्मान भारत प्रधानमंत्री जन आरोग्य योजना',
+      level: 'CENTRAL',
+      maxCoverAmount: 500000,
+      eligibleCategory: 'Socio-Economic Caste Census (SECC) / Antyodaya / BPL Families',
+      keyBenefits: [
+        '₹5,00,000 completely cashless annual secondary & tertiary healthcare cover per family',
+        'Over 29,000 empaneled hospitals across India (public & private)',
+        'Pre & post hospitalization coverage (up to 3 days prior, 15 days after discharge)',
+        'No restrictions on family size, age, or gender; zero co-payment'
+      ],
+      requiredDocs: ['Aadhaar Card', 'Ration Card / PM Letter / ABHA ID'],
+      applicationPortalUrl: 'https://mera.pmjay.gov.in',
+      tollFreeHelpline: '14555 / 1800-111-565',
+      isEligibleDemo: true
+    },
+    {
+      id: 'GOV-SCHEME-02',
+      name: 'Rashtriya Arogya Nidhi (RAN)',
+      hindiName: 'राष्ट्रीय आरोग्य निधि',
+      level: 'CENTRAL',
+      maxCoverAmount: 1500000,
+      eligibleCategory: 'Patients below poverty line suffering from major life-threatening diseases',
+      keyBenefits: [
+        'Up to ₹15,00,000 one-time financial grant for super-specialty treatment',
+        'Direct disbursement to government super-specialty hospitals / AIIMS',
+        'Covers oncology, cardiology, organ transplant, neurosurgery'
+      ],
+      requiredDocs: ['Income Certificate (< ₹50,000/yr)', 'Hospital Treatment Estimate', 'Ration Card', 'Aadhaar Card'],
+      applicationPortalUrl: 'https://mohfw.gov.in/ran',
+      tollFreeHelpline: '011-23061986',
+      isEligibleDemo: true
+    },
+    {
+      id: 'GOV-SCHEME-03',
+      name: 'Mahatma Jyotiba Phule Jan Arogya Yojana (MJPJAY)',
+      hindiName: 'महात्मा ज्योतिबा फुले जन आरोग्य योजना',
+      level: 'STATE',
+      state: 'Maharashtra',
+      maxCoverAmount: 500000,
+      eligibleCategory: 'Yellow/Orange Ration Card Holders & Annapurna card holders in Maharashtra',
+      keyBenefits: [
+        '₹5,00,000 cashless family cover across 996 empaneled medical procedures',
+        'Covers polytrauma, knee replacement, angioplasty, burn ICU care',
+        'Free consultations and prescribed follow-up medications'
+      ],
+      requiredDocs: ['Yellow/Orange Ration Card', 'Aadhaar Card', 'Domicile Certificate'],
+      applicationPortalUrl: 'https://jeevandayee.gov.in',
+      tollFreeHelpline: '155388 / 1800 233 2200',
+      isEligibleDemo: true
+    },
+    {
+      id: 'GOV-SCHEME-04',
+      name: "Chief Minister's Comprehensive Health Insurance (CMCHIS)",
+      hindiName: 'मुख्यमंत्री समग्र स्वास्थ्य बीमा योजना (तमिलनाडु)',
+      level: 'STATE',
+      state: 'Tamil Nadu',
+      maxCoverAmount: 500000,
+      eligibleCategory: 'Resident families with annual income below ₹1,20,000',
+      keyBenefits: [
+        'Cashless coverage up to ₹5 Lakhs for 1,513 procedures',
+        'Includes specialized diagnostic procedures and tertiary surgical care',
+        'Dedicated district kiosk enrollment'
+      ],
+      requiredDocs: ['Smart Family Card (Ration Card)', 'Village Officer Income Certificate', 'Aadhaar Card'],
+      applicationPortalUrl: 'https://cmchistn.com',
+      tollFreeHelpline: '1800 425 3993',
+      isEligibleDemo: false
+    }
+  ];
+
+  // Private Insurance Policies & TPA Pre-Auth Data
+  private insurancePolicies: InsurancePolicyClaim[] = [
+    {
+      id: 'INS-POL-01',
+      insurerName: 'Star Health & Allied Insurance',
+      policyNumber: 'STAR-COMP-2026-8910',
+      sumInsured: 1000000,
+      remainingSum: 820000,
+      coPayPercent: 0,
+      tpaName: 'Medi Assist Healthcare TPA',
+      preAuthStatus: 'APPROVED',
+      sanctionedAmount: 180000,
+      claimReferenceNo: 'TPA-MED-849120',
+      lastUpdated: '2026-09-15 11:20'
+    },
+    {
+      id: 'INS-POL-02',
+      insurerName: 'HDFC ERGO Health Optima Secure',
+      policyNumber: 'HDFC-OPT-9481-2026',
+      sumInsured: 1500000,
+      remainingSum: 1500000,
+      coPayPercent: 0,
+      tpaName: 'In-House HDFC Health Desk',
+      preAuthStatus: 'IN_REVIEW',
+      sanctionedAmount: 0,
+      claimReferenceNo: 'TPA-HDFC-102941',
+      lastUpdated: '2026-09-16 16:45'
+    },
+    {
+      id: 'INS-POL-03',
+      insurerName: 'Care Health Supreme',
+      policyNumber: 'CARE-SUP-5512-2026',
+      sumInsured: 750000,
+      remainingSum: 620000,
+      coPayPercent: 10,
+      tpaName: 'Raksha Health Insurance TPA',
+      preAuthStatus: 'SETTLED',
+      sanctionedAmount: 130000,
+      claimReferenceNo: 'TPA-RAK-771829',
+      lastUpdated: '2026-08-20 09:30'
+    }
+  ];
+
+  // NGO & Charitable Trust Medical Grants
+  private ngoGrants: NGOGrantProgram[] = [
+    {
+      id: 'NGO-TATA-01',
+      orgName: 'Tata Memorial Trust & Allied Charities',
+      programTitle: 'Lifeline Oncology Treatment Assistance',
+      hindiTitle: 'टाटा ट्रस्ट ऑन्कोलॉजी कैंसर उपचार सहायता',
+      focusArea: 'CANCER',
+      maxGrantAmount: 300000,
+      criteria: 'Economically weaker patients undergoing chemotherapy, radiation, or surgical resection',
+      trustContact: 'aid@tatatrusts.org • +91 22 6665 8282',
+      verificationOfficer: 'Dr. Anita Sen (Social Work Dept)',
+      turnaroundTime: '48 to 72 Hours'
+    },
+    {
+      id: 'NGO-ROTARY-02',
+      orgName: 'Rotary International Club (District 3131)',
+      programTitle: 'Save Little Hearts (Pediatric Cardiac Surgeries)',
+      hindiTitle: 'रोटरी क्लब "नन्हें दिल" बाल हृदय शल्य चिकित्सा अनुदान',
+      focusArea: 'CARDIAC_PEDIATRIC',
+      maxGrantAmount: 250000,
+      criteria: 'Children aged 0-14 suffering from Congenital Heart Defects (VSD/ASD/Tetralogy of Fallot)',
+      trustContact: 'hearts@rotary3131.org • +91 20 2567 1144',
+      verificationOfficer: 'Rtn. Vikramaditya Joshi',
+      turnaroundTime: '24 Hours (Urgent Cardiac)'
+    },
+    {
+      id: 'NGO-LIONS-03',
+      orgName: 'Lions International Healthcare Foundation',
+      programTitle: 'Subsidized Renal Dialysis & Corneal Sight Fund',
+      hindiTitle: 'लायंस क्लब निःशुल्क डायलिसिस एवं कॉर्निया ट्रांसप्लांट राहत',
+      focusArea: 'KIDNEY_DIALYSIS',
+      maxGrantAmount: 150000,
+      criteria: 'Chronic Kidney Disease Stage 4-5 patients requiring weekly maintenance hemodialysis',
+      trustContact: 'healthcare@lionsclubsindia.org • +91 11 4152 7788',
+      verificationOfficer: 'Harish Mehta (Trustee)',
+      turnaroundTime: 'Immediate Voucher Issuance'
+    },
+    {
+      id: 'NGO-BEINGHUMAN-04',
+      orgName: 'Being Human The Salman Khan Foundation',
+      programTitle: 'Critical Pediatric & Bone Marrow Healthcare Fund',
+      hindiTitle: 'बीइंग ह्यूमन फाउंडेशन गंभीर बाल रोग व बोन मैरो सहायता',
+      focusArea: 'GENERAL_BPL',
+      maxGrantAmount: 200000,
+      criteria: 'Children from underprivileged backgrounds requiring complex orthopedic and reconstructive surgery',
+      trustContact: 'contact@beinghumanonline.com • +91 22 2642 8888',
+      verificationOfficer: 'Pooja Nair (Medical Liaison)',
+      turnaroundTime: '3 to 5 Days'
+    }
+  ];
+
+  getGovernmentSchemes(): GovSchemeInfo[] {
+    return [...this.govSchemes];
+  }
+
+  getInsurancePolicies(): InsurancePolicyClaim[] {
+    return [...this.insurancePolicies];
+  }
+
+  simulateTPAApproval(policyNumber: string, requestedAmount: number): InsurancePolicyClaim {
+    const policy = this.insurancePolicies.find(p => p.policyNumber === policyNumber) || this.insurancePolicies[0];
+    const sanctioned = Math.min(requestedAmount, policy.remainingSum);
+    policy.preAuthStatus = 'APPROVED';
+    policy.sanctionedAmount = sanctioned;
+    policy.remainingSum -= sanctioned;
+    policy.claimReferenceNo = `TPA-REQ-${Math.floor(100000 + Math.random() * 900000)}`;
+    policy.lastUpdated = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    return { ...policy };
+  }
+
+  getNGOGrants(): NGOGrantProgram[] {
+    return [...this.ngoGrants];
   }
 }
 
