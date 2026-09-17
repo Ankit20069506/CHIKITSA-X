@@ -34,6 +34,7 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
 
   const [activeSymptom, setActiveSymptom] = useState<BodySymptom | null>(null);
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
+  const [targetHospitalForAmbulance, setTargetHospitalForAmbulance] = useState<Hospital | null>(null);
   const [selectedHospitalForOPD, setSelectedHospitalForOPD] = useState<Hospital | null>(null);
   const [activePassForModal, setActivePassForModal] = useState<LiveOPDToken | null>(null);
   const [emiGapAmount, setEmiGapAmount] = useState<number | null>(null);
@@ -208,6 +209,10 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
         <HospitalFinderV2
           language={language}
           onSelectHospital={(hosp) => setSelectedHospitalForOPD(hosp)}
+          onCallAmbulance={(hosp) => {
+            setTargetHospitalForAmbulance(hosp);
+            setIsEmergencyOpen(true);
+          }}
         />
       )}
 
@@ -282,7 +287,11 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
       {isEmergencyOpen && (
         <EmergencyRadarModal
           language={language}
-          onClose={() => setIsEmergencyOpen(false)}
+          targetHospital={targetHospitalForAmbulance}
+          onClose={() => {
+            setIsEmergencyOpen(false);
+            setTargetHospitalForAmbulance(null);
+          }}
         />
       )}
     </div>
