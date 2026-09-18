@@ -1,18 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { LiveOPDToken, AppLanguage } from '../../types';
 import { db } from '../../db/database';
-import { Clock, AlertTriangle, Bell, MessageSquare } from 'lucide-react';
+import { Clock, AlertTriangle, Bell, MessageSquare, CalendarPlus } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface Props {
   language: AppLanguage;
   onOpenPass: (token: LiveOPDToken) => void;
+  onBookNew?: () => void;
 }
 
-export const LiveOPDQueueTracker: React.FC<Props> = ({ language, onOpenPass }) => {
+export const LiveOPDQueueTracker: React.FC<Props> = ({ language, onOpenPass, onBookNew }) => {
   const [queues, setQueues] = useState<LiveOPDToken[]>(() => db.getLiveOPDQueues());
   const activeToken = queues[0];
   const [smsSent, setSmsSent] = useState(false);
+
+  useEffect(() => {
+    return db.subscribe('opd', () => {
+      setQueues(db.getLiveOPDQueues());
+    });
+  }, []);
 
   const handleAdvanceQueue = () => {
     if (!activeToken) return;
@@ -32,8 +39,33 @@ export const LiveOPDQueueTracker: React.FC<Props> = ({ language, onOpenPass }) =
 
   if (!activeToken) {
     return (
-      <div className="glass-panel" style={{ padding: '24px', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-muted)' }}>No active OPD appointment found. Book an appointment to track live queue status.</p>
+      <div className="glass-panel" style={{ padding: '28px 24px', textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{
+          width: '48px',
+          height: '48px',
+          borderRadius: '50%',
+          background: 'rgba(2, 132, 199, 0.1)',
+          color: 'var(--medical-blue)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 12px'
+        }}>
+          <Clock size={24} />
+        </div>
+        <h3 style={{ margin: '0 0 6px', fontSize: '1.05rem' }}>
+          {language === 'HI' ? 'कोई सक्रिय ओपीडी टोकन नहीं' : 'No Active OPD Appointments'}
+        </h3>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '420px', margin: '0 auto 14px' }}>
+          {language === 'HI'
+            ? 'अपनी पसंद के अस्पताल में डॉक्टर परामर्श हेतु तुरंत लाइव डिजिटल टोकन बुक करें।'
+            : 'Book a consultation slot with a specialist doctor at an empaneled hospital to receive your live digital token.'}
+        </p>
+        {onBookNew && (
+          <button onClick={onBookNew} className="btn btn-primary btn-sm">
+            <CalendarPlus size={15} /> {language === 'HI' ? 'नया ओपीडी स्लॉट बुक करें' : 'Book OPD Slot Now'}
+          </button>
+        )}
       </div>
     );
   }

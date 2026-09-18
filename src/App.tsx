@@ -29,12 +29,18 @@ export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [initialAuthRole, setInitialAuthRole] = useState<'PATIENT' | 'DOCTOR'>('PATIENT');
 
-  const currentUser: User = db.getCurrentUser();
+  const [currentUser, setCurrentUser] = useState<User>(() => db.getCurrentUser());
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('chikitsax_v2_theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    return db.subscribe('patients', () => {
+      setCurrentUser(db.getCurrentUser());
+    });
+  }, []);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -46,9 +52,11 @@ export const App: React.FC = () => {
 
   const handleRoleChange = (role: UserRole) => {
     setCurrentRole(role);
-    const users = db.getDemoUsers();
-    const matched = users.find(u => u.role === role) || users[0];
-    db.setCurrentUser(matched);
+    if (role !== 'PATIENT') {
+      const users = db.getDemoUsers();
+      const matched = users.find(u => u.role === role);
+      if (matched) db.setCurrentUser(matched);
+    }
 
     if (role === 'PATIENT') setActiveTab('PATIENT_PORTAL');
     else if (role === 'DOCTOR') setActiveTab('DOCTOR_PORTAL');
@@ -62,7 +70,9 @@ export const App: React.FC = () => {
 
   const handleAuthSuccess = (role: UserRole) => {
     setIsAuthModalOpen(false);
-    handleRoleChange(role);
+    setCurrentRole(role);
+    if (role === 'PATIENT') setActiveTab('PATIENT_PORTAL');
+    else if (role === 'DOCTOR') setActiveTab('DOCTOR_PORTAL');
   };
 
   return (
@@ -109,6 +119,7 @@ export const App: React.FC = () => {
             language={language}
             activeSubTab={patientSubTab}
             setActiveSubTab={setPatientSubTab}
+            onOpenAuth={() => handleOpenAuth('PATIENT')}
           />
         )}
 

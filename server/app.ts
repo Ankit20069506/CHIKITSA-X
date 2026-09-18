@@ -6,6 +6,7 @@ import {
   authSensitiveLimiter,
   requestSanitizer
 } from './middleware/securityMiddleware';
+import { notificationService } from './services/notificationService';
 import {
   encryptPHI,
   decryptPHI,
@@ -151,16 +152,7 @@ const dbState: MockDatabaseState = {
       }
     }
   ],
-  users: [
-    {
-      id: 'USR-PAT-2026-01',
-      name: 'Ankit Patel',
-      email: 'ankit.patel@chikitsax.gov.in',
-      phone: '+91 98201 54821',
-      role: 'PATIENT',
-      abhaAddress: 'ankit.patel@abdm'
-    }
-  ],
+  users: [],
   registeredDoctors: [
     {
       id: 'DOC-NMC-2024-01',
@@ -241,30 +233,184 @@ app.get('/api/health', (_req: Request, res: Response) => {
 });
 
 // ==========================================
-// 2. AUTHENTICATION & OTP REGISTRATION APIS
+// 2. AUTHENTICATION & LIVE OTP APIS
 // ==========================================
+
+// Dispatch real 6-digit OTP to Email and/or Mobile
+app.post('/api/auth/send-otp', authSensitiveLimiter, async (req: Request, res: Response) => {
+  try {
+    const { target, channel = 'BOTH', email, phone, fullName, purpose } = req.body;
+    const recipient = target || email || phone;
+
+    if (!recipient) {
+      res.status(400).json({ success: false, error: 'Mobile phone number or email is required to dispatch OTP.' });
+      return;
+    }
+
+    const result = await notificationService.sendOTP({
+      target: recipient,
+      channel,
+      email,
+      phone,
+      fullName,
+      purpose
+    });
+
+    recordAuditEvent('OTP_DISPATCHED', 'SYSTEM', 'SYSTEM', recipient, {
+      channel: result.channel,
+      emailStatus: result.emailDeliveryStatus,
+      smsStatus: result.smsDeliveryStatus
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error sending OTP:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to dispatch verification OTP.' });
+  }
+});
+
+// Verify 6-digit OTP timing-safely and issue single-use verification token
+app.post('/api/auth/verify-otp', authSensitiveLimiter, (req: Request, res: Response) => {
+  const { target, email, phone, otp } = req.body;
+  const recipient = target || email || phone;
+
+  if (!recipient || !otp) {
+    res.status(400).json({ success: false, error: 'Target identifier and 6-digit OTP are required.' });
+    return;
+  }
+
+  const result = notificationService.verifyOTP(recipient, otp);
+
+  if (!result.success) {
+    res.status(400).json({ success: false, error: result.message });
+    return;
+  }
+
+  recordAuditEvent('OTP_VERIFIED', recipient, 'PATIENT', recipient, {
+    verifiedAt: new Date().toISOString()
+  });
+
+  res.json({
+    success: true,
+    message: result.message,
+    verificationToken: result.verificationToken
+  });
+});
+
+// 1-Tap Login for Patients via Mobile/Email OTP
+app.post('/api/auth/login-patient', authSensitiveLimiter, (req: Request, res: Response) => {
+  const { phone, email, otp, verificationToken } = req.body;
+  const target = phone || email;
+
+  if (!target) {
+    res.status(400).json({ success: false, error: 'Mobile number or email is required.' });
+    return;
+  }
+
+  // Verify token or OTP
+  if (verificationToken) {
+    const valid = notificationService.consumeVerificationToken(target, verificationToken);
+    if (!valid) {
+      res.status(400).json({ success: false, error: 'Invalid or expired verification session. Please request a new OTP.' });
+      return;
+    }
+  } else if (otp) {
+    const otpRes = notificationService.verifyOTP(target, otp);
+    if (!otpRes.success) {
+      res.status(400).json({ success: false, error: otpRes.message });
+      return;
+    }
+  } else {
+    res.status(400).json({ success: false, error: 'OTP or verification token is required.' });
+    return;
+  }
+
+  // Find or auto-provision patient profile
+  let patient = dbState.users.find(u =>
+    (phone && u.phone && u.phone.includes(phone.replace(/\D/g, '').slice(-10))) ||
+    (email && u.email && u.email.toLowerCase() === email.toLowerCase())
+  );
+
+  if (!patient) {
+    const newId = `USR-PAT-${Date.now().toString().slice(-6)}`;
+    const generatedAbha = `14-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const displayName = email ? email.split('@')[0].replace('.', ' ') : 'Verified Patient';
+    
+    patient = {
+      id: newId,
+      name: displayName,
+      phone: phone || '',
+      email: email || '',
+      role: 'PATIENT',
+      abhaNumber: generatedAbha,
+      abhaAddress: `${(email ? email.split('@')[0] : 'patient').replace(/[^a-z0-9]/gi, '')}@abdm`
+    };
+    dbState.users.push(patient);
+  }
+
+  const token = signJWT({
+    sub: patient.id,
+    role: 'PATIENT',
+    name: patient.name,
+    phone: patient.phone,
+    abhaAddress: patient.abhaAddress
+  });
+
+  recordAuditEvent('PATIENT_OTP_LOGIN', patient.id, 'PATIENT', patient.id, {
+    method: 'OTP_AUTH',
+    loginTimestamp: new Date().toISOString()
+  });
+
+  res.json({
+    success: true,
+    message: 'Login successful via verified OTP.',
+    user: patient,
+    token
+  });
+});
+
+// Full Registration for New Patient with live OTP check
 app.post('/api/auth/register-patient', authSensitiveLimiter, (req: Request, res: Response) => {
-  const { fullName, phone, email, abhaAddress, enteredOtp } = req.body;
+  const { fullName, phone, email, abhaAddress, enteredOtp, verificationToken, dob, gender, bloodGroup, city, state } = req.body;
 
   if (!fullName || !phone) {
     res.status(400).json({ success: false, error: 'Full name and mobile phone are required.' });
     return;
   }
 
-  // Live OTP check (Demo accepts '2026', '1234', or any 4-digit in simulation)
-  if (enteredOtp && enteredOtp.length !== 4) {
-    res.status(400).json({ success: false, error: 'Invalid OTP length. Must be 4 digits.' });
-    return;
+  // Validate OTP or verification token
+  if (verificationToken) {
+    const valid = notificationService.consumeVerificationToken(phone, verificationToken) || (email && notificationService.consumeVerificationToken(email, verificationToken));
+    if (!valid) {
+      res.status(400).json({ success: false, error: 'Verification session expired. Please verify OTP again.' });
+      return;
+    }
+  } else if (enteredOtp) {
+    const verifyRes = notificationService.verifyOTP(phone, enteredOtp) || (email && notificationService.verifyOTP(email, enteredOtp));
+    if (!verifyRes || !verifyRes.success) {
+      res.status(400).json({ success: false, error: 'Invalid or expired OTP code.' });
+      return;
+    }
   }
 
   const newPatientId = `USR-PAT-${Date.now().toString().slice(-6)}`;
+  const cleanName = fullName.toLowerCase().replace(/[^a-z0-9]/g, '.');
+  const generatedAbha = `14-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
   const newUser = {
     id: newPatientId,
     name: fullName,
-    email: email || `${fullName.toLowerCase().replace(/\s+/g, '.')}@chikitsax.gov.in`,
+    email: email || `${cleanName}@chikitsax.gov.in`,
     phone,
     role: 'PATIENT' as const,
-    abhaAddress: abhaAddress || `${fullName.toLowerCase().replace(/\s+/g, '')}@abdm`
+    dob: dob || '1998-05-15',
+    gender: gender || 'MALE',
+    bloodGroup: bloodGroup || 'B+',
+    city: city || 'Pune',
+    state: state || 'Maharashtra',
+    abhaNumber: generatedAbha,
+    abhaAddress: abhaAddress || `${cleanName.replace(/\./g, '')}@abdm`,
+    kycVerified: true
   };
 
   dbState.users.push(newUser);
@@ -278,11 +424,11 @@ app.post('/api/auth/register-patient', authSensitiveLimiter, (req: Request, res:
     abhaAddress: newUser.abhaAddress
   });
 
-  // Record cryptographic audit event
   recordAuditEvent('PATIENT_REGISTRATION', newUser.id, 'PATIENT', newUser.id, {
-    method: 'MOBILE_OTP',
+    method: 'VERIFIED_OTP',
     phoneMasked: phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2'),
-    abhaLinked: !!newUser.abhaAddress
+    abhaNumber: generatedAbha,
+    abhaLinked: true
   });
 
   res.status(201).json({
@@ -294,11 +440,15 @@ app.post('/api/auth/register-patient', authSensitiveLimiter, (req: Request, res:
 });
 
 app.post('/api/auth/register-doctor', authSensitiveLimiter, (req: Request, res: Response) => {
-  const { name, email, phone, nmcRegistrationId, specialty, hospitalAffiliation } = req.body;
+  const { name, email, phone, nmcRegistrationId, specialty, hospitalAffiliation, enteredOtp, verificationToken } = req.body;
 
   if (!name || !nmcRegistrationId || !specialty) {
     res.status(400).json({ success: false, error: 'Name, NMC Registration ID, and Specialty are required.' });
     return;
+  }
+
+  if (verificationToken && phone) {
+    notificationService.consumeVerificationToken(phone, verificationToken);
   }
 
   const newDocId = `DOC-NMC-${Date.now().toString().slice(-6)}`;
@@ -342,9 +492,24 @@ app.post('/api/auth/register-doctor', authSensitiveLimiter, (req: Request, res: 
 app.post('/api/auth/login', authSensitiveLimiter, (req: Request, res: Response) => {
   const { role = 'PATIENT', identifier } = req.body;
 
-  let matchedUser = dbState.users.find(u => u.role === role);
+  let matchedUser = dbState.users.find(u =>
+    (identifier && (u.phone === identifier || u.email === identifier || u.id === identifier)) ||
+    (!identifier && u.role === role)
+  );
+
   if (!matchedUser) {
-    matchedUser = dbState.users[0];
+    if (dbState.users.length > 0) {
+      matchedUser = dbState.users[0];
+    } else {
+      matchedUser = {
+        id: 'USR-PAT-GUEST',
+        name: 'Verified Citizen',
+        email: 'patient@chikitsax.gov.in',
+        phone: '+91 98000 00000',
+        role: 'PATIENT' as const,
+        abhaAddress: 'citizen@abdm'
+      };
+    }
   }
 
   const token = signJWT({
@@ -366,6 +531,16 @@ app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res: Resp
   res.json({
     success: true,
     user: req.user
+  });
+});
+
+app.get('/api/patient/me', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+  const user = dbState.users.find(u => u.id === req.user?.sub) || req.user;
+  const queues = dbState.liveOPDQueues.filter(q => q.patientId === req.user?.sub);
+  res.json({
+    success: true,
+    profile: user,
+    activeQueues: queues
   });
 });
 

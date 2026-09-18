@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import type { AppLanguage, BodySymptom, Hospital, LiveOPDToken } from '../../types';
+import React, { useState, useEffect } from 'react';
+import type { AppLanguage, BodySymptom, Hospital, LiveOPDToken, User, ABHAProfile } from '../../types';
 import { db } from '../../db/database';
 import { BodyMapSelector } from './BodyMapSelector';
 import { ChikitsaAICopilot } from './ChikitsaAICopilot';
@@ -18,19 +18,28 @@ import { EmergencyRadarModal } from '../common/EmergencyRadarModal';
 import { VoiceIntakeView } from './VoiceIntakeView';
 import { VoiceIntakeModal } from './VoiceIntakeModal';
 import { CareFinanceHub } from '../finance/CareFinanceHub';
-import { Mic, Sparkles, ArrowRight } from 'lucide-react';
+import { Mic, Sparkles, ArrowRight, User as UserIcon, LogOut, KeyRound } from 'lucide-react';
 
 interface Props {
   language: AppLanguage;
   activeSubTab: string;
   setActiveSubTab: (tab: string) => void;
+  onOpenAuth?: () => void;
 }
 
-export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, setActiveSubTab }) => {
-  const profile = db.getABHAProfile();
+export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, setActiveSubTab, onOpenAuth }) => {
+  const [currentUser, setCurrentUser] = useState<User>(() => db.getCurrentUser());
+  const [profile, setProfile] = useState<ABHAProfile>(() => db.getABHAProfile());
   const fhirRecords = db.getFHIRRecords();
   const biomarkers = db.getLabBiomarkers();
   const genericDrugs = db.getGenericDrugs();
+
+  useEffect(() => {
+    return db.subscribe('patients', () => {
+      setCurrentUser(db.getCurrentUser());
+      setProfile(db.getABHAProfile());
+    });
+  }, []);
 
   const [activeSymptom, setActiveSymptom] = useState<BodySymptom | null>(null);
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
@@ -43,6 +52,97 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
 
   return (
     <div>
+      {/* Patient Profile & Live Auth Bar */}
+      <div style={{
+        background: (currentUser.isGuest || currentUser.name === 'Guest Citizen')
+          ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.09) 0%, rgba(2, 132, 199, 0.09) 100%)'
+          : 'linear-gradient(135deg, rgba(16, 185, 129, 0.09) 0%, rgba(2, 132, 199, 0.09) 100%)',
+        border: (currentUser.isGuest || currentUser.name === 'Guest Citizen') ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
+        borderRadius: 'var(--radius-md)',
+        padding: '12px 18px',
+        marginBottom: '16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        {(currentUser.isGuest || currentUser.name === 'Guest Citizen') ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: '#f59e0b',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.1rem'
+              }}>
+                👋
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)' }}>
+                  {language === 'HI' ? 'अतिथि नागरिक मोड (Guest Citizen Mode)' : 'Guest Citizen Mode (No Mock Data)'}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {language === 'HI'
+                    ? 'व्यक्तिगत आभा (ABHA) हेल्थ कार्ड, ईएचआर रिकॉर्ड्स व ओपीडी टोकन हेतु मोबाइल/ईमेल ओटीपी से लॉगिन या पंजीकरण करें।'
+                    : 'Log in or register with your real Mobile / Email OTP to mint your verified ABHA 2.0 Card & book real appointments.'}
+                </div>
+              </div>
+            </div>
+            {onOpenAuth && (
+              <button onClick={onOpenAuth} className="btn btn-primary btn-sm">
+                <KeyRound size={14} /> {language === 'HI' ? 'ओटीपी से लॉगिन / पंजीकरण करें' : 'Login / Register with Real OTP'}
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: '#10b981',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 800
+              }}>
+                ✓
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{currentUser.name}</span>
+                  <span style={{ fontSize: '0.72rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                    ABDM KYC Verified
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  ABHA: <strong>{profile.abhaNumber}</strong> • Mobile: {currentUser.phone || profile.mobile} • {currentUser.email || profile.abhaAddress}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                db.logout();
+                setCurrentUser(db.getCurrentUser());
+                setProfile(db.getABHAProfile());
+              }}
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.78rem' }}
+            >
+              <LogOut size={13} /> {language === 'HI' ? 'लॉगआउट / नया खाता' : 'Logout / Switch Patient'}
+            </button>
+          </>
+        )}
+      </div>
+
       <div style={{
         display: 'flex',
         gap: '8px',
@@ -129,6 +229,7 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
           <LiveOPDQueueTracker
             language={language}
             onOpenPass={(tok) => setActivePassForModal(tok)}
+            onBookNew={() => setSelectedHospitalForOPD(db.getHospitals()[0])}
           />
 
           <BodyMapSelector
@@ -186,6 +287,7 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
         <LiveOPDQueueTracker
           language={language}
           onOpenPass={(tok) => setActivePassForModal(tok)}
+          onBookNew={() => setSelectedHospitalForOPD(db.getHospitals()[0])}
         />
       )}
 

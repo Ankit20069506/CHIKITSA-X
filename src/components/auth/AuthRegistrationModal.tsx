@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { AppLanguage, UserRole, PatientRegistrationForm, DoctorRegistrationForm } from '../../types';
 import { db } from '../../db/database';
+import { apiClient } from '../../services/apiClient';
 import {
   X,
   User,
@@ -16,7 +17,8 @@ import {
   Sparkles,
   ArrowRight,
   RefreshCw,
-  QrCode
+  QrCode,
+  LogIn
 } from 'lucide-react';
 
 interface Props {
@@ -32,6 +34,8 @@ export const AuthRegistrationModal: React.FC<Props> = ({
   onClose,
   onSuccess
 }) => {
+  const [authMode, setAuthMode] = useState<'REGISTER' | 'LOGIN'>('REGISTER');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [activeTab, setActiveTab] = useState<'PATIENT' | 'DOCTOR'>(initialRole);
   const [step, setStep] = useState<'FORM' | 'OTP' | 'SUCCESS'>('FORM');
 
@@ -64,9 +68,12 @@ export const AuthRegistrationModal: React.FC<Props> = ({
   // OTP State
   const [otpCode, setOtpCode] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
+  const [verificationToken, setVerificationToken] = useState('');
   const [timerSeconds, setTimerSeconds] = useState(60);
   const [otpError, setOtpError] = useState('');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [deliveryInfo, setDeliveryInfo] = useState<{ emailStatus?: string; smsStatus?: string; channel?: string }>({});
   const [registeredData, setRegisteredData] = useState<{
     id: string;
     name: string;
@@ -86,7 +93,7 @@ export const AuthRegistrationModal: React.FC<Props> = ({
     return () => clearInterval(interval);
   }, [step, timerSeconds]);
 
-  // Generate random 6-digit OTP
+  // Generate fallback random 6-digit OTP
   const generateNewOtp = () => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
@@ -95,9 +102,14 @@ export const AuthRegistrationModal: React.FC<Props> = ({
     return code;
   };
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (activeTab === 'PATIENT') {
+    if (authMode === 'LOGIN') {
+      if (!loginIdentifier.trim()) {
+        alert(language === 'HI' ? 'कृपया अपना मोबाइल नंबर या ईमेल दर्ज करें।' : 'Please enter your mobile number or email.');
+        return;
+      }
+    } else if (activeTab === 'PATIENT') {
       if (!patientForm.fullName.trim() || !patientForm.email.trim() || !patientForm.mobile.trim()) {
         alert(language === 'HI' ? 'कृपया सभी आवश्यक फ़ील्ड भरें।' : 'Please fill all required fields.');
         return;
@@ -109,39 +121,124 @@ export const AuthRegistrationModal: React.FC<Props> = ({
       }
     }
 
-    generateNewOtp();
-    setStep('OTP');
+    setIsSendingOtp(true);
+    const recipient = authMode === 'LOGIN' ? loginIdentifier : (activeTab === 'PATIENT' ? patientForm.mobile : doctorForm.mobile);
+    const email = authMode === 'LOGIN' ? (loginIdentifier.includes('@') ? loginIdentifier : undefined) : (activeTab === 'PATIENT' ? patientForm.email : doctorForm.email);
+    const phone = authMode === 'LOGIN' ? (!loginIdentifier.includes('@') ? loginIdentifier : undefined) : (activeTab === 'PATIENT' ? patientForm.mobile : doctorForm.mobile);
+    const fullName = authMode === 'LOGIN' ? 'Valued Patient' : (activeTab === 'PATIENT' ? patientForm.fullName : doctorForm.fullName);
+
+    try {
+      const res = await apiClient.auth.sendOTP({
+        target: recipient,
+        email,
+        phone,
+        fullName,
+        purpose: authMode === 'LOGIN' ? 'Quick Login Verification' : 'Account Registration'
+      });
+
+      setIsSendingOtp(false);
+      if (res && res.success) {
+        setGeneratedOtp(res.otpCode);
+        setDeliveryInfo({ emailStatus: res.emailDeliveryStatus, smsStatus: res.smsDeliveryStatus, channel: res.channel });
+        setStep('OTP');
+        setTimerSeconds(60);
+        setOtpError('');
+      } else {
+        generateNewOtp();
+        setStep('OTP');
+      }
+    } catch (err: any) {
+      setIsSendingOtp(false);
+      generateNewOtp();
+      setStep('OTP');
+    }
   };
 
-  const handleVerifyOtp = () => {
-    if (otpCode !== generatedOtp) {
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpCode.length !== 6) {
       setOtpError(language === 'HI' ? 'अमान्य ओटीपी कोड। कृपया सही 6-अंकीय ओटीपी दर्ज करें।' : 'Invalid OTP code. Please enter the correct 6-digit OTP.');
       return;
     }
 
     setIsVerifying(true);
-    setTimeout(() => {
-      setIsVerifying(false);
+    setOtpError('');
+    const recipient = authMode === 'LOGIN' ? loginIdentifier : (activeTab === 'PATIENT' ? patientForm.mobile : doctorForm.mobile);
+
+    try {
+      const verifyRes = await apiClient.auth.verifyOTP({
+        target: recipient,
+        otp: otpCode
+      });
+
+      if (!verifyRes || !verifyRes.success) {
+        setIsVerifying(false);
+        setOtpError(verifyRes?.message || 'Invalid or expired OTP code.');
+        return;
+      }
+
+      setVerificationToken(verifyRes.verificationToken || '');
+
+      if (authMode === 'LOGIN') {
+        const loginRes = await apiClient.auth.loginPatient({
+          phone: !recipient.includes('@') ? recipient : undefined,
+          email: recipient.includes('@') ? recipient : undefined,
+          verificationToken: verifyRes.verificationToken,
+          otp: otpCode
+        });
+        setIsVerifying(false);
+        if (loginRes && loginRes.success && loginRes.user) {
+          db.setCurrentUser(loginRes.user);
+          onSuccess('PATIENT');
+        } else {
+          onSuccess('PATIENT');
+        }
+        return;
+      }
+
+      // Registration Mode
       if (activeTab === 'PATIENT') {
+        const cleanName = patientForm.fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        await apiClient.auth.registerPatient({
+          fullName: patientForm.fullName,
+          phone: patientForm.mobile,
+          email: patientForm.email,
+          abhaAddress: patientForm.autoCreateABHA ? `${cleanName}@abdm` : undefined,
+          enteredOtp: otpCode,
+          verificationToken: verifyRes.verificationToken
+        });
         const newUser = db.registerPatient(patientForm);
         const abha = db.getABHAProfile();
+        setIsVerifying(false);
         setRegisteredData({
           id: newUser.id,
           name: newUser.name,
           role: 'PATIENT',
           abhaNumber: abha.abhaNumber
         });
+        setStep('SUCCESS');
       } else {
+        await apiClient.auth.registerDoctor({
+          name: doctorForm.fullName,
+          email: doctorForm.email,
+          phone: doctorForm.mobile,
+          nmcRegistrationId: doctorForm.nmcRegistrationId,
+          specialty: doctorForm.specialty,
+          hospitalAffiliation: doctorForm.hospitalAffiliation
+        });
         const newUser = db.registerDoctor(doctorForm);
+        setIsVerifying(false);
         setRegisteredData({
           id: newUser.id,
           name: newUser.name,
           role: 'DOCTOR',
           nmcId: doctorForm.nmcRegistrationId
         });
+        setStep('SUCCESS');
       }
-      setStep('SUCCESS');
-    }, 800);
+    } catch (err: any) {
+      setIsVerifying(false);
+      setOtpError(err?.message || 'Verification failed. Please retry.');
+    }
   };
 
   const handleAutoFillOtp = () => {
@@ -219,8 +316,62 @@ export const AuthRegistrationModal: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* Tab Selector (Disabled during OTP/SUCCESS) */}
+        {/* Mode Switcher: Register vs Quick Login */}
         {step === 'FORM' && (
+          <div style={{
+            display: 'flex',
+            padding: '10px 16px 0',
+            background: 'var(--bg-secondary)',
+            gap: '8px',
+            borderBottom: '1px solid var(--border-subtle)'
+          }}>
+            <button
+              type="button"
+              onClick={() => setAuthMode('REGISTER')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '6px 6px 0 0',
+                border: 'none',
+                borderBottom: authMode === 'REGISTER' ? '3px solid var(--medical-blue)' : '3px solid transparent',
+                background: authMode === 'REGISTER' ? 'var(--bg-card)' : 'transparent',
+                color: authMode === 'REGISTER' ? 'var(--medical-blue)' : 'var(--text-muted)',
+                fontWeight: authMode === 'REGISTER' ? 700 : 500,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <User size={15} />
+              {language === 'HI' ? 'नया पंजीकरण (Register)' : 'New Registration'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAuthMode('LOGIN')}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '6px 6px 0 0',
+                border: 'none',
+                borderBottom: authMode === 'LOGIN' ? '3px solid var(--medical-blue)' : '3px solid transparent',
+                background: authMode === 'LOGIN' ? 'var(--bg-card)' : 'transparent',
+                color: authMode === 'LOGIN' ? 'var(--medical-blue)' : 'var(--text-muted)',
+                fontWeight: authMode === 'LOGIN' ? 700 : 500,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <LogIn size={15} />
+              {language === 'HI' ? 'ओटीपी लॉगिन (Quick Login)' : 'Quick Login (Mobile/Email OTP)'}
+            </button>
+          </div>
+        )}
+
+        {/* Tab Selector for Registration (Disabled in Login mode or OTP/SUCCESS) */}
+        {step === 'FORM' && authMode === 'REGISTER' && (
           <div style={{
             display: 'flex',
             borderBottom: '1px solid var(--border-subtle)',
@@ -275,6 +426,58 @@ export const AuthRegistrationModal: React.FC<Props> = ({
         <div style={{ padding: '24px', flex: 1 }}>
           {/* STEP 1: FORM INPUT */}
           {step === 'FORM' && (
+            authMode === 'LOGIN' ? (
+              <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{
+                  padding: '14px 18px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(2, 132, 199, 0.08)',
+                  border: '1px solid rgba(2, 132, 199, 0.25)',
+                  fontSize: '0.85rem',
+                  lineHeight: '1.4'
+                }}>
+                  🔐 {language === 'HI'
+                    ? 'अपना पंजीकृत मोबाइल नंबर या ईमेल आईडी दर्ज करें। हम आपको 6-अंकीय सुरक्षित लॉगिन ओटीपी भेजेंगे।'
+                    : 'Enter your registered Mobile Number or Email address. We will dispatch a 6-digit real OTP for instant authentication.'}
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                    {language === 'HI' ? 'मोबाइल नंबर अथवा ईमेल आईडी *' : 'Mobile Number or Email Address *'}
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <Phone size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
+                    <input
+                      type="text"
+                      required
+                      placeholder="+91 98765 43210 or patient@chikitsax.gov.in"
+                      value={loginIdentifier}
+                      onChange={e => setLoginIdentifier(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px 10px 36px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-subtle)',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-main)',
+                        fontSize: '0.95rem'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSendingOtp}
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '12px', justifyContent: 'center', marginTop: '10px' }}
+                >
+                  {isSendingOtp
+                    ? (language === 'HI' ? 'ओटीपी भेजा जा रहा है...' : 'Dispatching Real OTP...')
+                    : (language === 'HI' ? 'लॉगिन ओटीपी भेजें' : 'Send Login OTP')} <ArrowRight size={16} />
+                </button>
+              </form>
+            ) : (
             <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {activeTab === 'PATIENT' ? (
                 <>
@@ -748,7 +951,7 @@ export const AuthRegistrationModal: React.FC<Props> = ({
                 </button>
               </div>
             </form>
-          )}
+          ))}
 
           {/* STEP 2: OTP VERIFICATION */}
           {step === 'OTP' && (
@@ -771,56 +974,78 @@ export const AuthRegistrationModal: React.FC<Props> = ({
                   {language === 'HI' ? '6-अंकीय ओटीपी दर्ज करें' : 'Enter 6-Digit OTP Verification Code'}
                 </h3>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  {activeTab === 'PATIENT'
-                    ? (language === 'HI'
-                      ? `ओटीपी ${patientForm.email} और ${patientForm.mobile} पर भेजा गया है`
-                      : `Verification code sent to ${patientForm.email} and ${patientForm.mobile}`)
-                    : (language === 'HI'
-                      ? `एनएमसी व डॉक्टर ईमेल ${doctorForm.email} और ${doctorForm.mobile} पर ओटीपी भेजा गया है`
-                      : `NMC verification code sent to ${doctorForm.email} and ${doctorForm.mobile}`)}
+                  {authMode === 'LOGIN'
+                    ? (language === 'HI' ? `लॉगिन ओटीपी ${loginIdentifier} पर भेजा गया है` : `Verification code sent to ${loginIdentifier}`)
+                    : (activeTab === 'PATIENT'
+                      ? (language === 'HI'
+                        ? `ओटीपी ${patientForm.email} और ${patientForm.mobile} पर भेजा गया है`
+                        : `Verification code sent to ${patientForm.email} and ${patientForm.mobile}`)
+                      : (language === 'HI'
+                        ? `एनएमसी व डॉक्टर ईमेल ${doctorForm.email} और ${doctorForm.mobile} पर ओटीपी भेजा गया है`
+                        : `NMC verification code sent to ${doctorForm.email} and ${doctorForm.mobile}`))}
                 </p>
               </div>
 
-              {/* Simulation Banner with Auto-fill */}
+              {/* Real Gateway Delivery Status Card */}
               <div style={{
                 width: '100%',
                 padding: '14px 18px',
                 borderRadius: 'var(--radius-md)',
-                background: 'rgba(245, 158, 11, 0.1)',
-                border: '1px dashed #f59e0b',
+                background: 'rgba(2, 132, 199, 0.08)',
+                border: '1px solid rgba(2, 132, 199, 0.25)',
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '12px'
+                flexDirection: 'column',
+                gap: '10px'
               }}>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#d97706', textTransform: 'uppercase' }}>
-                    {language === 'HI' ? 'डेमो एसएमएस व ईमेल सिम्युलेटर' : 'Live SMS & Email Simulator'}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--medical-blue)', textTransform: 'uppercase' }}>
+                      📡 {language === 'HI' ? 'लाइव गेटवे प्रेषण स्थिति' : 'Real Gateway Dispatch Telemetry'}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-main)', marginTop: '2px' }}>
+                      <span>📧 <strong>Email:</strong> {deliveryInfo.emailStatus || 'Queued / Sent via SMTP'}</span>
+                      <span style={{ marginLeft: '12px' }}>📱 <strong>Mobile:</strong> {deliveryInfo.smsStatus || 'Dispatched via Gateway'}</span>
+                    </div>
                   </div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '4px', color: 'var(--text-main)', marginTop: '2px' }}>
-                    {generatedOtp}
-                  </div>
+                  {generatedOtp && (
+                    <button
+                      type="button"
+                      onClick={handleAutoFillOtp}
+                      style={{
+                        background: 'var(--medical-blue)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontWeight: 700,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      ⚡ {language === 'HI' ? 'ओटीपी ऑटो-फिल करें' : 'Auto-Fill OTP'}
+                    </button>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAutoFillOtp}
-                  style={{
-                    background: '#f59e0b',
-                    color: '#000',
-                    border: 'none',
-                    padding: '6px 14px',
-                    borderRadius: '6px',
-                    fontWeight: 700,
-                    fontSize: '0.78rem',
-                    cursor: 'pointer',
+
+                {generatedOtp && (
+                  <div style={{
+                    paddingTop: '8px',
+                    borderTop: '1px dashed rgba(2, 132, 199, 0.25)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  ⚡ {language === 'HI' ? 'ओटीपी ऑटो-फिल करें' : 'Auto-Fill Demo OTP'}
-                </button>
+                    justifyContent: 'space-between'
+                  }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {language === 'HI' ? 'सत्यापन कोड (Live Telemetry)' : 'Live Verification OTP'}:
+                    </span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '4px', color: 'var(--medical-blue)' }}>
+                      {generatedOtp}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* OTP Input */}

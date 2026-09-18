@@ -9,6 +9,8 @@ export interface User {
   phone: string;
   hospitalId?: string;
   abhaAddress?: string;
+  abhaNumber?: string;
+  isGuest?: boolean;
 }
 
 export interface ABHAProfile {

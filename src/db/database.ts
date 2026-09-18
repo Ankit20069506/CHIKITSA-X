@@ -26,23 +26,15 @@ import type {
 
 class ChikitsaDatabase {
   private currentUser: User = {
-    id: 'USR-PAT-2026-01',
-    name: 'Ankit Patel',
-    email: 'patient@chikitsax.demo',
+    id: 'USR-GUEST',
+    name: 'Guest Citizen',
+    email: '',
     role: 'PATIENT',
-    phone: '+91 98201 54821',
-    abhaAddress: 'ankit.patel@abdm'
+    phone: '',
+    isGuest: true
   };
 
   private demoUsers: User[] = [
-    {
-      id: 'USR-PAT-2026-01',
-      name: 'Ankit Patel',
-      email: 'patient@chikitsax.demo',
-      role: 'PATIENT',
-      phone: '+91 98201 54821',
-      abhaAddress: 'ankit.patel@abdm'
-    },
     {
       id: 'USR-DOC-2026-02',
       name: 'Dr. Rajesh Kulkarni',
@@ -93,17 +85,17 @@ class ChikitsaDatabase {
   ];
 
   private abhaProfile: ABHAProfile = {
-    abhaNumber: '14-2026-9812-4401',
-    abhaAddress: 'ankit.patel@abdm',
-    fullName: 'Ankit Patel',
-    dob: '1995-08-14',
+    abhaNumber: '14-XXXX-XXXX-XXXX',
+    abhaAddress: 'unregistered@abdm',
+    fullName: 'Guest Citizen',
+    dob: 'YYYY-MM-DD',
     gender: 'MALE',
-    bloodGroup: 'O+',
-    mobile: '+91 98201 54821',
-    address: 'Flat 402, Shivam Enclave, Baner Road, Pune, Maharashtra - 411045',
-    kycVerified: true,
-    linkedFacilitiesCount: 4,
-    qrPayload: 'https://healthid.ndhm.gov.in/verify?abha=14-2026-9812-4401'
+    bloodGroup: 'Not Registered',
+    mobile: 'Please Register',
+    address: 'Empanelled Network, India',
+    kycVerified: false,
+    linkedFacilitiesCount: 0,
+    qrPayload: 'https://healthid.ndhm.gov.in'
   };
 
   private fhirRecords: FHIRRecord[] = [
@@ -367,25 +359,7 @@ class ChikitsaDatabase {
     }
   ];
 
-  private liveOPDQueues: LiveOPDToken[] = [
-    {
-      id: 'OPD-2026-8A92F',
-      referenceId: 'CHX-2026-8A92F',
-      patientId: 'USR-PAT-2026-01',
-      patientName: 'Ankit Patel',
-      hospitalId: 'HOSP-01',
-      hospitalName: 'CarePlus Tertiary Heart Hospital',
-      department: 'Cardiology',
-      doctorName: 'Dr. Rajesh Kulkarni',
-      appointmentDate: 'Today (Live)',
-      appointmentSlot: '11:30 AM',
-      tokenNumber: 18,
-      currentServingToken: 14,
-      estimatedWaitMinutes: 16,
-      status: 'WAITING',
-      doctorDelayNotes: 'Doctor completing an emergency stenting procedure. Expected delay: ~5 mins.'
-    }
-  ];
+  private liveOPDQueues: LiveOPDToken[] = [];
 
   private genericDrugs: GenericDrugMapping[] = [
     {
@@ -580,27 +554,95 @@ class ChikitsaDatabase {
   setCurrentUser(u: User): void {
     this.currentUser = u;
     localStorage.setItem('chikitsax_v2_user', JSON.stringify(u));
+    this.notify('patients');
+  }
+
+  logout(): void {
+    localStorage.removeItem('chikitsax_v2_user');
+    localStorage.removeItem('chikitsax_v2_abha');
+    localStorage.removeItem('chikitsax_v2_opd_queues');
+    this.currentUser = {
+      id: 'USR-GUEST',
+      name: 'Guest Citizen',
+      email: '',
+      role: 'PATIENT',
+      phone: '',
+      isGuest: true
+    };
+    this.liveOPDQueues = [];
+    this.notify('patients');
+    this.notify('opd');
   }
 
   getDemoUsers(): User[] { return this.demoUsers; }
-  getABHAProfile(): ABHAProfile { return this.abhaProfile; }
-  getFHIRRecords(): FHIRRecord[] { return this.fhirRecords; }
+
+  getABHAProfile(): ABHAProfile {
+    const saved = localStorage.getItem('chikitsax_v2_abha');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+    }
+    const user = this.getCurrentUser();
+    if (!user.isGuest && user.name && user.name !== 'Guest Citizen') {
+      const generatedAbha = user.abhaNumber || `14-${new Date().getFullYear()}-4401-9218`;
+      const generatedAddr = user.abhaAddress || `${user.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@abdm`;
+      return {
+        abhaNumber: generatedAbha,
+        abhaAddress: generatedAddr,
+        fullName: user.name,
+        dob: '1996-06-20',
+        gender: 'MALE',
+        bloodGroup: 'B+',
+        mobile: user.phone || '9800000000',
+        address: 'Maharashtra - India',
+        kycVerified: true,
+        linkedFacilitiesCount: 1,
+        qrPayload: `https://healthid.ndhm.gov.in/verify?abha=${generatedAbha}`
+      };
+    }
+    return this.abhaProfile;
+  }
+
+  getFHIRRecords(): FHIRRecord[] {
+    const user = this.getCurrentUser();
+    if (user.isGuest || user.name === 'Guest Citizen') {
+      return [];
+    }
+    return this.fhirRecords;
+  }
+
   getHospitals(): Hospital[] { return this.hospitals; }
   getGenericDrugs(): GenericDrugMapping[] { return this.genericDrugs; }
   getLabBiomarkers(): LabBiomarker[] { return this.labBiomarkers; }
-  getLiveOPDQueues(): LiveOPDToken[] { return this.liveOPDQueues; }
+
+  getLiveOPDQueues(): LiveOPDToken[] {
+    const saved = localStorage.getItem('chikitsax_v2_opd_queues');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch (e) { /* ignore */ }
+    }
+    return this.liveOPDQueues;
+  }
+
   getCrowdfundingCampaign(): CrowdfundingCampaign { return this.crowdfundingCampaign; }
   getSOAPNotes(): SOAPClinicalNote[] { return this.soapNotes; }
 
   // Queue Advance Simulation
   advanceQueueToken(opdId: string): LiveOPDToken | null {
-    const q = this.liveOPDQueues.find(item => item.id === opdId);
+    const queues = this.getLiveOPDQueues();
+    const q = queues.find(item => item.id === opdId);
     if (q && q.currentServingToken < q.tokenNumber) {
       q.currentServingToken += 1;
       q.estimatedWaitMinutes = Math.max(0, (q.tokenNumber - q.currentServingToken) * 4);
       if (q.currentServingToken === q.tokenNumber) {
         q.status = 'SERVING';
       }
+      this.liveOPDQueues = queues;
+      localStorage.setItem('chikitsax_v2_opd_queues', JSON.stringify(queues));
+      this.notify('opd');
       return { ...q };
     }
     return null;
@@ -618,12 +660,13 @@ class ChikitsaDatabase {
     const tokenNum = 19 + Math.floor(Math.random() * 5);
     const currentServing = tokenNum - (3 + Math.floor(Math.random() * 3));
     const waitMins = (tokenNum - currentServing) * 4;
+    const user = this.getCurrentUser();
 
     const newAppointment: LiveOPDToken = {
       id: `OPD-2026-${randNum}`,
       referenceId: `CHX-2026-${randNum}`,
-      patientId: this.currentUser.id,
-      patientName: this.currentUser.name,
+      patientId: user.id,
+      patientName: user.name || 'Citizen Patient',
       hospitalId: hosp.id,
       hospitalName: hosp.name,
       department,
@@ -636,13 +679,19 @@ class ChikitsaDatabase {
       status: 'WAITING'
     };
 
-    this.liveOPDQueues.unshift(newAppointment);
+    const queues = this.getLiveOPDQueues();
+    queues.unshift(newAppointment);
+    this.liveOPDQueues = queues;
+    localStorage.setItem('chikitsax_v2_opd_queues', JSON.stringify(queues));
     this.notify('opd');
     return newAppointment;
   }
 
   addOPDToken(token: LiveOPDToken): void {
-    this.liveOPDQueues.unshift(token);
+    const queues = this.getLiveOPDQueues();
+    queues.unshift(token);
+    this.liveOPDQueues = queues;
+    localStorage.setItem('chikitsax_v2_opd_queues', JSON.stringify(queues));
     this.notify('opd');
   }
 
@@ -1296,27 +1345,29 @@ class ChikitsaDatabase {
       email: form.email,
       phone: form.mobile,
       role: 'PATIENT',
-      abhaAddress: form.autoCreateABHA ? abhaAddr : undefined
+      abhaNumber: abhaNum,
+      abhaAddress: abhaAddr,
+      isGuest: false
     };
 
-    if (form.autoCreateABHA) {
-      this.abhaProfile = {
-        abhaNumber: abhaNum,
-        abhaAddress: abhaAddr,
-        fullName: form.fullName,
-        dob: form.dob || '1998-05-15',
-        gender: form.gender,
-        bloodGroup: form.bloodGroup,
-        mobile: form.mobile,
-        address: `${form.city}, ${form.state} - India`,
-        kycVerified: true,
-        linkedFacilitiesCount: 1,
-        qrPayload: `https://healthid.ndhm.gov.in/verify?abha=${abhaNum}`
-      };
-    }
+    this.abhaProfile = {
+      abhaNumber: abhaNum,
+      abhaAddress: abhaAddr,
+      fullName: form.fullName,
+      dob: form.dob || '1998-05-15',
+      gender: form.gender,
+      bloodGroup: form.bloodGroup,
+      mobile: form.mobile,
+      address: `${form.city}, ${form.state} - India`,
+      kycVerified: true,
+      linkedFacilitiesCount: 1,
+      qrPayload: `https://healthid.ndhm.gov.in/verify?abha=${abhaNum}`
+    };
 
     this.demoUsers.unshift(newUser);
     this.currentUser = newUser;
+    localStorage.setItem('chikitsax_v2_user', JSON.stringify(newUser));
+    localStorage.setItem('chikitsax_v2_abha', JSON.stringify(this.abhaProfile));
 
     this.addAuditLog({
       actor: form.fullName,
