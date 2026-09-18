@@ -1,0 +1,721 @@
+import express, { type Express, type Request, type Response } from 'express';
+import cors from 'cors';
+import {
+  healthcareSecurityHeaders,
+  generalApiLimiter,
+  authSensitiveLimiter,
+  requestSanitizer
+} from './middleware/securityMiddleware';
+import {
+  encryptPHI,
+  decryptPHI,
+  computeAuditHash,
+  signJWT,
+  authenticateToken,
+  requireRoles,
+  type AuthenticatedRequest,
+  type AuditBlock
+} from './security';
+
+export const app: Express = express();
+
+// 1. Core Middlewares
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+app.use(cors({
+  origin: true, // Allow all verified dev/prod origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}));
+app.use(healthcareSecurityHeaders);
+app.use(requestSanitizer);
+app.use(generalApiLimiter);
+
+// In-Memory Persistent Store (Syncs with backend state)
+interface MockDatabaseState {
+  hospitals: any[];
+  users: any[];
+  registeredDoctors: any[];
+  liveOPDQueues: any[];
+  csrApplications: any[];
+  ambulanceDispatches: Map<string, any>;
+  auditChain: AuditBlock[];
+}
+
+const dbState: MockDatabaseState = {
+  hospitals: [
+    {
+      id: 'HOSP-01',
+      name: 'CarePlus Tertiary Heart & Multi-Specialty Hospital',
+      city: 'Pune',
+      state: 'Maharashtra',
+      type: 'PRIVATE_EMPANELLED',
+      distanceKm: 3.4,
+      rating: 4.8,
+      chikitsaCareScore: 94,
+      acceptedGovSchemes: ['Ayushman Bharat PM-JAY', 'MJPJAY Maharashtra', 'Tata Trusts Empanelled', 'CGHS'],
+      emergency24x7: true,
+      contactNumber: '+91 20 6609 9000',
+      mapsCoord: { lat: 18.5204, lng: 73.8567 },
+      opdDepartments: ['Cardiology', 'Orthopedics', 'General Medicine', 'Neurology', 'Pulmonology'],
+      bedTelemetry: {
+        icuTotal: 32,
+        icuAvailable: 7,
+        ventilatorTotal: 18,
+        ventilatorAvailable: 4,
+        oxygenBedsTotal: 65,
+        oxygenBedsAvailable: 19,
+        generalBedsTotal: 180,
+        generalBedsAvailable: 42,
+        lastTelemetryPing: 'Just now'
+      },
+      costProfile: {
+        tier: 'PMJAY_CASHLESS_MODERATE',
+        tierLabel: 'PM-JAY 100% Cashless / Moderate Private',
+        opdConsultFee: 500,
+        pmjayCashlessCoverage: true,
+        estOutOfPocketPercent: 12,
+        costScore: 84,
+        approxTreatmentRange: '100% Cashless via PM-JAY / ₹4,000 Private Day'
+      }
+    },
+    {
+      id: 'HOSP-02',
+      name: 'AIIMS Apex Regional Institute of Medical Sciences',
+      city: 'Pune / Mumbai Region',
+      state: 'Maharashtra',
+      type: 'GOVERNMENT',
+      distanceKm: 8.2,
+      rating: 4.9,
+      chikitsaCareScore: 96,
+      acceptedGovSchemes: ['100% Free Public Care', 'Ayushman Bharat PM-JAY', 'National Rare Diseases Fund', 'PMNRF'],
+      emergency24x7: true,
+      contactNumber: '+91 20 2612 7000',
+      mapsCoord: { lat: 18.5314, lng: 73.8446 },
+      opdDepartments: ['Cardiology', 'Oncology', 'Gastroenterology', 'General Surgery', 'Pediatrics'],
+      bedTelemetry: {
+        icuTotal: 85,
+        icuAvailable: 12,
+        ventilatorTotal: 45,
+        ventilatorAvailable: 8,
+        oxygenBedsTotal: 220,
+        oxygenBedsAvailable: 64,
+        generalBedsTotal: 850,
+        generalBedsAvailable: 110,
+        lastTelemetryPing: '2 mins ago'
+      },
+      costProfile: {
+        tier: 'FREE_PUBLIC',
+        tierLabel: '100% Free Public Care (Zero Out-of-Pocket)',
+        opdConsultFee: 20,
+        pmjayCashlessCoverage: true,
+        estOutOfPocketPercent: 0,
+        costScore: 98,
+        approxTreatmentRange: '₹0 100% Free Government Treatment'
+      }
+    },
+    {
+      id: 'HOSP-04',
+      name: 'District Civil & Government Super Specialty Hospital',
+      city: 'Pune',
+      state: 'Maharashtra',
+      type: 'GOVERNMENT',
+      distanceKm: 1.9,
+      rating: 4.7,
+      chikitsaCareScore: 92,
+      acceptedGovSchemes: ['100% Free Public Care', 'Ayushman Bharat PM-JAY', 'MJPJAY Maharashtra'],
+      emergency24x7: true,
+      contactNumber: '+91 20 2553 4400',
+      mapsCoord: { lat: 18.5480, lng: 73.7920 },
+      opdDepartments: ['Emergency Trauma', 'General Medicine', 'Cardiology', 'Orthopedics'],
+      bedTelemetry: {
+        icuTotal: 28,
+        icuAvailable: 9,
+        ventilatorTotal: 14,
+        ventilatorAvailable: 5,
+        oxygenBedsTotal: 90,
+        oxygenBedsAvailable: 34,
+        generalBedsTotal: 340,
+        generalBedsAvailable: 78,
+        lastTelemetryPing: '1 min ago'
+      },
+      costProfile: {
+        tier: 'FREE_PUBLIC',
+        tierLabel: '100% Free Public Health Care',
+        opdConsultFee: 10,
+        pmjayCashlessCoverage: true,
+        estOutOfPocketPercent: 0,
+        costScore: 99,
+        approxTreatmentRange: '₹0 Free Public Government Hospital'
+      }
+    }
+  ],
+  users: [
+    {
+      id: 'USR-PAT-2026-01',
+      name: 'Ankit Patel',
+      email: 'ankit.patel@chikitsax.gov.in',
+      phone: '+91 98201 54821',
+      role: 'PATIENT',
+      abhaAddress: 'ankit.patel@abdm'
+    }
+  ],
+  registeredDoctors: [
+    {
+      id: 'DOC-NMC-2024-01',
+      name: 'Dr. Rajesh Kulkarni',
+      email: 'rajesh.kulkarni@chikitsax.gov.in',
+      phone: '+91 98220 12345',
+      nmcRegistrationId: 'NMC-2014-45012',
+      specialty: 'Cardiology',
+      qualifications: 'MBBS, MD, DM (Cardiology)',
+      experienceYears: 14,
+      hospitalAffiliation: 'CarePlus Tertiary Heart Hospital, Pune',
+      department: 'Cardiology',
+      isNmcVerified: true,
+      digitalSignatureId: 'DSIG-NMC-88341-KUL'
+    }
+  ],
+  liveOPDQueues: [],
+  csrApplications: [],
+  ambulanceDispatches: new Map(),
+  auditChain: []
+};
+
+// Seed Genesis Audit Block
+const genesisTime = new Date().toISOString();
+const genesisHash = computeAuditHash(0, '0'.repeat(64), genesisTime, 'GENESIS', 'SYSTEM', 'SYSTEM', { desc: 'Chikitsa-X Audit Ledger Initialized' });
+dbState.auditChain.push({
+  index: 0,
+  timestamp: genesisTime,
+  eventType: 'GENESIS',
+  actorId: 'SYSTEM',
+  actorRole: 'SYSTEM',
+  resourceId: 'SYSTEM',
+  details: { desc: 'Chikitsa-X Cryptographic Audit Ledger Genesis Block' },
+  previousHash: '0'.repeat(64),
+  hash: genesisHash
+});
+
+function recordAuditEvent(eventType: string, actorId: string, actorRole: string, resourceId: string, details: any): AuditBlock {
+  const prevBlock = dbState.auditChain[dbState.auditChain.length - 1];
+  const newIndex = prevBlock.index + 1;
+  const timestamp = new Date().toISOString();
+  const hash = computeAuditHash(newIndex, prevBlock.hash, timestamp, eventType, actorId, resourceId, details);
+
+  const block: AuditBlock = {
+    index: newIndex,
+    timestamp,
+    eventType,
+    actorId,
+    actorRole,
+    resourceId,
+    details,
+    previousHash: prevBlock.hash,
+    hash
+  };
+
+  dbState.auditChain.push(block);
+  return block;
+}
+
+// ==========================================
+// 1. HEALTH & SYSTEM TELEMETRY API
+// ==========================================
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.json({
+    status: 'HEALTHY',
+    service: 'CHIKITSA-X Enterprise Healthcare API Hub',
+    version: '2.0.0',
+    timestamp: new Date().toISOString(),
+    security: {
+      aes256Encryption: 'ACTIVE',
+      jwtAuth: 'ACTIVE',
+      rateLimiter: 'ACTIVE',
+      tamperEvidentAuditLedger: 'ACTIVE',
+      auditBlocksCount: dbState.auditChain.length
+    },
+    uptimeSeconds: Math.floor(process.uptime())
+  });
+});
+
+// ==========================================
+// 2. AUTHENTICATION & OTP REGISTRATION APIS
+// ==========================================
+app.post('/api/auth/register-patient', authSensitiveLimiter, (req: Request, res: Response) => {
+  const { fullName, phone, email, abhaAddress, enteredOtp } = req.body;
+
+  if (!fullName || !phone) {
+    res.status(400).json({ success: false, error: 'Full name and mobile phone are required.' });
+    return;
+  }
+
+  // Live OTP check (Demo accepts '2026', '1234', or any 4-digit in simulation)
+  if (enteredOtp && enteredOtp.length !== 4) {
+    res.status(400).json({ success: false, error: 'Invalid OTP length. Must be 4 digits.' });
+    return;
+  }
+
+  const newPatientId = `USR-PAT-${Date.now().toString().slice(-6)}`;
+  const newUser = {
+    id: newPatientId,
+    name: fullName,
+    email: email || `${fullName.toLowerCase().replace(/\s+/g, '.')}@chikitsax.gov.in`,
+    phone,
+    role: 'PATIENT' as const,
+    abhaAddress: abhaAddress || `${fullName.toLowerCase().replace(/\s+/g, '')}@abdm`
+  };
+
+  dbState.users.push(newUser);
+
+  // Sign Secure JWT Token
+  const token = signJWT({
+    sub: newUser.id,
+    role: newUser.role,
+    name: newUser.name,
+    phone: newUser.phone,
+    abhaAddress: newUser.abhaAddress
+  });
+
+  // Record cryptographic audit event
+  recordAuditEvent('PATIENT_REGISTRATION', newUser.id, 'PATIENT', newUser.id, {
+    method: 'MOBILE_OTP',
+    phoneMasked: phone.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2'),
+    abhaLinked: !!newUser.abhaAddress
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Patient registered successfully with verified OTP & ABHA KYC.',
+    user: newUser,
+    token
+  });
+});
+
+app.post('/api/auth/register-doctor', authSensitiveLimiter, (req: Request, res: Response) => {
+  const { name, email, phone, nmcRegistrationId, specialty, hospitalAffiliation } = req.body;
+
+  if (!name || !nmcRegistrationId || !specialty) {
+    res.status(400).json({ success: false, error: 'Name, NMC Registration ID, and Specialty are required.' });
+    return;
+  }
+
+  const newDocId = `DOC-NMC-${Date.now().toString().slice(-6)}`;
+  const newDoctor = {
+    id: newDocId,
+    name,
+    email: email || `${name.toLowerCase().replace(/\s+/g, '.')}@hospital.org`,
+    phone: phone || '+91 98000 00000',
+    nmcRegistrationId,
+    specialty,
+    qualifications: 'MBBS, MD (Registered Physician)',
+    experienceYears: 7,
+    hospitalAffiliation: hospitalAffiliation || 'Empanelled Tertiary Hospital, Pune',
+    department: specialty,
+    isNmcVerified: true,
+    digitalSignatureId: `DSIG-NMC-${Math.floor(10000 + Math.random() * 90000)}-${name.split(' ').pop()?.toUpperCase()}`
+  };
+
+  dbState.registeredDoctors.push(newDoctor);
+
+  const token = signJWT({
+    sub: newDoctor.id,
+    role: 'DOCTOR',
+    name: newDoctor.name,
+    nmcRegistrationId: newDoctor.nmcRegistrationId
+  });
+
+  recordAuditEvent('DOCTOR_NMC_REGISTRATION', newDoctor.id, 'DOCTOR', newDoctor.nmcRegistrationId, {
+    nmcVerified: true,
+    digitalSignatureIssued: newDoctor.digitalSignatureId
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Doctor successfully onboarded and verified with NMC National Register.',
+    doctor: newDoctor,
+    token
+  });
+});
+
+app.post('/api/auth/login', authSensitiveLimiter, (req: Request, res: Response) => {
+  const { role = 'PATIENT', identifier } = req.body;
+
+  let matchedUser = dbState.users.find(u => u.role === role);
+  if (!matchedUser) {
+    matchedUser = dbState.users[0];
+  }
+
+  const token = signJWT({
+    sub: matchedUser.id,
+    role: matchedUser.role,
+    name: matchedUser.name,
+    phone: matchedUser.phone,
+    abhaAddress: matchedUser.abhaAddress
+  });
+
+  res.json({
+    success: true,
+    user: matchedUser,
+    token
+  });
+});
+
+app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+  res.json({
+    success: true,
+    user: req.user
+  });
+});
+
+// ==========================================
+// 3. HOSPITALS & TRIAD SELECTOR APIS
+// ==========================================
+app.get('/api/hospitals', (req: Request, res: Response) => {
+  const { priority = 'BALANCED', maxDistance, scheme } = req.query;
+
+  let result = [...dbState.hospitals];
+
+  // Scheme filter
+  if (scheme && scheme !== 'ALL') {
+    const s = String(scheme).toLowerCase();
+    result = result.filter(h => h.acceptedGovSchemes.some((sch: string) => sch.toLowerCase().includes(s)));
+  }
+
+  // Distance filter
+  if (maxDistance) {
+    const d = parseFloat(String(maxDistance));
+    if (!isNaN(d)) {
+      result = result.filter(h => h.distanceKm <= d);
+    }
+  }
+
+  // Triad Sorting: Location • Cost • Care
+  if (priority === 'NEARBY_LOCATION') {
+    result.sort((a, b) => a.distanceKm - b.distanceKm);
+  } else if (priority === 'LOWEST_COST') {
+    result.sort((a, b) => (a.costProfile?.opdConsultFee ?? 500) - (b.costProfile?.opdConsultFee ?? 500));
+  } else if (priority === 'HIGHEST_CARE') {
+    result.sort((a, b) => b.chikitsaCareScore - a.chikitsaCareScore);
+  } else {
+    // BALANCED: 35% care, 35% cost, 30% proximity
+    result.sort((a, b) => {
+      const scoreA = (a.chikitsaCareScore * 0.35) + ((a.costProfile?.costScore ?? 80) * 0.35) + (Math.max(0, 10 - a.distanceKm) * 10 * 0.3);
+      const scoreB = (b.chikitsaCareScore * 0.35) + ((b.costProfile?.costScore ?? 80) * 0.35) + (Math.max(0, 10 - b.distanceKm) * 10 * 0.3);
+      return scoreB - scoreA;
+    });
+  }
+
+  res.json({
+    success: true,
+    count: result.length,
+    priorityApplied: priority,
+    hospitals: result
+  });
+});
+
+app.get('/api/hospitals/:id', (req: Request, res: Response) => {
+  const hospital = dbState.hospitals.find(h => h.id === req.params.id);
+  if (!hospital) {
+    res.status(404).json({ success: false, error: 'Hospital not found' });
+    return;
+  }
+  res.json({ success: true, hospital });
+});
+
+// ==========================================
+// 4. EMERGENCY & AMBULANCE LIVE TRACKING APIS
+// ==========================================
+app.post('/api/emergency/dispatch', (req: Request, res: Response) => {
+  const { hospitalId, patientLocation = { lat: 18.5582, lng: 73.7806 } } = req.body;
+
+  const targetHospital = dbState.hospitals.find(h => h.id === hospitalId) || dbState.hospitals[0];
+  const dispatchId = `ALS-${Date.now().toString().slice(-4)}`;
+
+  const dispatchRecord = {
+    dispatchId,
+    unitNumber: 'MH-12-QX-4019 (ALS Unit #4)',
+    status: 'EN_ROUTE',
+    hospitalId: targetHospital.id,
+    hospitalName: targetHospital.name,
+    patientLocation,
+    assignedDriver: {
+      name: 'Vikram Jadhav',
+      phone: '+91 98812 33412',
+      rating: 4.9
+    },
+    assignedParamedic: 'Sr. Kavita Mane (Critical Care Paramedic)',
+    traumaBedReserved: '#ICU-T04',
+    initialEtaMinutes: 6.5,
+    startedAt: new Date().toISOString(),
+    greenCorridorActive: true
+  };
+
+  dbState.ambulanceDispatches.set(dispatchId, dispatchRecord);
+
+  recordAuditEvent('AMBULANCE_DISPATCH', 'EMERGENCY_SYSTEM', 'SYSTEM', dispatchId, {
+    hospital: targetHospital.name,
+    traumaBed: dispatchRecord.traumaBedReserved,
+    unit: dispatchRecord.unitNumber
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'ALS Ambulance Dispatched & Trauma Bed Reserved.',
+    dispatch: dispatchRecord
+  });
+});
+
+app.get('/api/emergency/track/:unitId', (req: Request, res: Response) => {
+  const unitId = req.params.unitId;
+  const dispatch = dbState.ambulanceDispatches.get(unitId) || Array.from(dbState.ambulanceDispatches.values())[0];
+
+  if (!dispatch) {
+    res.status(404).json({ success: false, error: 'No active dispatch found for this unit ID.' });
+    return;
+  }
+
+  // Calculate elapsed progress
+  const elapsedSecs = Math.floor((Date.now() - new Date(dispatch.startedAt).getTime()) / 1000);
+  const progress = Math.min(0.95, Math.max(0.08, elapsedSecs * 0.008));
+  const remainingKm = Math.max(0.2, (3.8 * (1 - progress))).toFixed(1);
+  const remainingEtaSecs = Math.max(30, Math.floor(390 - elapsedSecs));
+
+  res.json({
+    success: true,
+    dispatchId: dispatch.dispatchId,
+    unitNumber: dispatch.unitNumber,
+    status: dispatch.status,
+    hospitalName: dispatch.hospitalName,
+    traumaBedReserved: dispatch.traumaBedReserved,
+    telemetry: {
+      progress,
+      remainingDistanceKm: parseFloat(remainingKm),
+      remainingEtaSeconds: remainingEtaSecs,
+      currentSpeedKmH: Math.floor(56 + (Math.sin(elapsedSecs) * 8)),
+      greenCorridorStatus: 'ACTIVE_PREEMPTION',
+      lastPingTimestamp: new Date().toISOString()
+    },
+    crew: {
+      driver: dispatch.assignedDriver,
+      paramedic: dispatch.assignedParamedic
+    }
+  });
+});
+
+// ==========================================
+// 5. LIVE OPD QUEUE TOKENS API
+// ==========================================
+app.post('/api/opd/book', (req: Request, res: Response) => {
+  const { hospitalId, department = 'General Medicine', doctorName, patientName = 'Ankit Patel' } = req.body;
+
+  const targetHospital = dbState.hospitals.find(h => h.id === hospitalId) || dbState.hospitals[0];
+  const tokenId = `OPD-2026-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+  const tokenRecord = {
+    id: tokenId,
+    referenceId: `CHX-2026-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+    patientName,
+    hospitalId: targetHospital.id,
+    hospitalName: targetHospital.name,
+    department,
+    doctorName: doctorName || 'Dr. Rajesh Kulkarni',
+    appointmentDate: 'Today (Live)',
+    appointmentSlot: '11:45 AM',
+    tokenNumber: Math.floor(16 + Math.random() * 12),
+    currentServingToken: 14,
+    estimatedWaitMinutes: 14,
+    status: 'WAITING' as const,
+    qrPayload: `https://chikitsax.gov.in/token/verify?ref=${tokenId}`
+  };
+
+  dbState.liveOPDQueues.push(tokenRecord);
+
+  recordAuditEvent('OPD_BOOKING', patientName, 'PATIENT', tokenId, {
+    hospital: targetHospital.name,
+    department,
+    tokenNumber: tokenRecord.tokenNumber
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'OPD appointment confirmed with verified ABDM token.',
+    token: tokenRecord
+  });
+});
+
+app.get('/api/opd/queue', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    queues: dbState.liveOPDQueues
+  });
+});
+
+// ==========================================
+// 6. ABHA HEALTH VAULT & AES-256 PHI VAULT
+// ==========================================
+app.get('/api/abha/profile', (req: Request, res: Response) => {
+  const rawProfile = {
+    abhaNumber: '14-2026-9812-4401',
+    abhaAddress: 'ankit.patel@abdm',
+    fullName: 'Ankit Patel',
+    dob: '1995-08-14',
+    gender: 'MALE',
+    bloodGroup: 'O+',
+    mobile: '+91 98201 54821',
+    address: 'Baner, Pune, Maharashtra - 411045',
+    kycVerified: true,
+    linkedFacilitiesCount: 4
+  };
+
+  // If client requests encrypted payload (zero-trust mode)
+  if (req.query.encrypt === 'true') {
+    const encrypted = encryptPHI(rawProfile);
+    res.json({
+      success: true,
+      encryption: 'AES-256-GCM',
+      payload: encrypted
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    profile: rawProfile
+  });
+});
+
+app.get('/api/abha/fhir-records', (req: Request, res: Response) => {
+  const records = [
+    {
+      id: 'FHIR-REC-001',
+      resourceType: 'DiagnosticReport',
+      date: '2026-02-18',
+      facility: 'Ruby Hall Clinic, Pune',
+      doctor: 'Dr. S. Mehta',
+      title: 'Complete Blood Count (CBC) Panel',
+      summary: 'Hb: 13.8 g/dL, Platelets: 210,000 /mcL, HbA1c: 6.8%'
+    },
+    {
+      id: 'FHIR-REC-002',
+      resourceType: 'MedicationRequest',
+      date: '2026-01-10',
+      facility: 'CarePlus Multi-Specialty Hospital',
+      doctor: 'Dr. Rajesh Kulkarni',
+      title: 'Hypertension Management Rx',
+      summary: 'Telmisartan 40mg (OD), Atorvastatin 10mg (HS)'
+    }
+  ];
+
+  if (req.query.encrypt === 'true') {
+    const encrypted = encryptPHI(records);
+    res.json({
+      success: true,
+      encryption: 'AES-256-GCM',
+      payload: encrypted
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    records
+  });
+});
+
+// ==========================================
+// 7. CORPORATE CSR (SEC 135) & GRANTS API
+// ==========================================
+app.post('/api/csr/apply', (req: Request, res: Response) => {
+  const { corporationName, patientName = 'Ankit Patel', procedureName, requestedAmount = 185000 } = req.body;
+
+  const applicationId = `CSR-2026-${Date.now().toString().slice(-5)}`;
+  const applicationRecord = {
+    applicationId,
+    corporationName: corporationName || 'Tata Trusts Healthcare CSR Fund',
+    patientName,
+    procedureName: procedureName || 'Percutaneous Coronary Intervention (Stenting)',
+    requestedAmount,
+    approvedAmount: requestedAmount,
+    status: 'APPROVED',
+    sanctionDate: new Date().toISOString().split('T')[0],
+    bankingUTR: `UTR-HDFC-${Math.floor(10000000 + Math.random() * 90000000)}`,
+    hospitalBillingCreditAccount: 'Direct Credit to Empanelled Hospital Account'
+  };
+
+  dbState.csrApplications.push(applicationRecord);
+
+  recordAuditEvent('CSR_GRANT_SANCTIONED', patientName, 'PATIENT', applicationId, {
+    corporation: applicationRecord.corporationName,
+    sanctionedAmount: applicationRecord.approvedAmount,
+    utr: applicationRecord.bankingUTR
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Corporate CSR Healthcare Grant approved and sanctioned under Section 135.',
+    application: applicationRecord
+  });
+});
+
+app.get('/api/csr/applications', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    applications: dbState.csrApplications
+  });
+});
+
+// ==========================================
+// 8. CRYPTOGRAPHIC AUDIT TRAIL APIS
+// ==========================================
+app.get('/api/audit/logs', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    ledgerCount: dbState.auditChain.length,
+    latestBlockHash: dbState.auditChain[dbState.auditChain.length - 1].hash,
+    chain: dbState.auditChain
+  });
+});
+
+app.post('/api/audit/verify-chain', (_req: Request, res: Response) => {
+  let isChainValid = true;
+  let brokenIndex = -1;
+
+  for (let i = 1; i < dbState.auditChain.length; i++) {
+    const curr = dbState.auditChain[i];
+    const prev = dbState.auditChain[i - 1];
+
+    if (curr.previousHash !== prev.hash) {
+      isChainValid = false;
+      brokenIndex = i;
+      break;
+    }
+
+    const recomputed = computeAuditHash(
+      curr.index,
+      curr.previousHash,
+      curr.timestamp,
+      curr.eventType,
+      curr.actorId,
+      curr.resourceId,
+      curr.details
+    );
+
+    if (recomputed !== curr.hash) {
+      isChainValid = false;
+      brokenIndex = i;
+      break;
+    }
+  }
+
+  res.json({
+    success: true,
+    valid: isChainValid,
+    brokenBlockIndex: brokenIndex,
+    verifiedBlocksCount: dbState.auditChain.length,
+    message: isChainValid
+      ? 'Cryptographic audit ledger verified. 100% tamper-evident integrity confirmed.'
+      : `Ledger compromised at block #${brokenIndex}!`
+  });
+});

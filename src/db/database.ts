@@ -637,7 +637,13 @@ class ChikitsaDatabase {
     };
 
     this.liveOPDQueues.unshift(newAppointment);
+    this.notify('opd');
     return newAppointment;
+  }
+
+  addOPDToken(token: LiveOPDToken): void {
+    this.liveOPDQueues.unshift(token);
+    this.notify('opd');
   }
 
   // Calculate Care-To-Cost

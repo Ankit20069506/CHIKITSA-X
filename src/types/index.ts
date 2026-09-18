@@ -360,6 +360,7 @@ export interface PatientRegistrationForm {
   city: string;
   state: string;
   autoCreateABHA: boolean;
+  abhaAddress?: string;
 }
 
 export interface DoctorRegistrationForm {
