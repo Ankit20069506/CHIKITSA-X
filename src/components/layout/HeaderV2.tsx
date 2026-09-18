@@ -18,6 +18,7 @@ interface Props {
 }
 
 export const HeaderV2: React.FC<Props> = ({
+  currentUser,
   language,
   onToggleLanguage,
   theme,
@@ -128,6 +129,24 @@ export const HeaderV2: React.FC<Props> = ({
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {currentUser && currentUser.name && currentUser.name !== 'Guest Citizen' && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              fontSize: '0.78rem',
+              color: 'var(--text-main)',
+              fontWeight: 600
+            }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+              <span>👤 {currentUser.name}</span>
+            </div>
+          )}
+
           {onOpenAuth && (
             <button
               onClick={() => onOpenAuth('PATIENT')}

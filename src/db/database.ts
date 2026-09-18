@@ -26,22 +26,34 @@ import type {
 
 class ChikitsaDatabase {
   private currentUser: User = {
-    id: 'USR-GUEST',
-    name: 'Guest Citizen',
-    email: '',
+    id: 'USR-PAT-9821',
+    name: 'Ankit Kumar Chaudhary',
+    email: 'ankitkumarchaudhary641@gmail.com',
     role: 'PATIENT',
-    phone: '',
-    isGuest: true
+    phone: '+91 98765 43210',
+    abhaNumber: '14-2026-9812-4401',
+    abhaAddress: 'ankit.chaudhary@abdm',
+    isGuest: false
   };
 
   private demoUsers: User[] = [
+    {
+      id: 'USR-PAT-9821',
+      name: 'Ankit Kumar Chaudhary',
+      email: 'ankitkumarchaudhary641@gmail.com',
+      role: 'PATIENT',
+      phone: '+91 98765 43210',
+      abhaNumber: '14-2026-9812-4401',
+      abhaAddress: 'ankit.chaudhary@abdm',
+      isGuest: false
+    },
     {
       id: 'USR-DOC-2026-02',
       name: 'Dr. Rajesh Kulkarni',
       email: 'doctor@chikitsax.demo',
       role: 'DOCTOR',
       phone: '+91 98220 11928',
-      hospitalId: 'HOSP-01'
+      hospitalId: 'HOSP-MH-01'
     },
     {
       id: 'USR-ADM-2026-03',
@@ -49,7 +61,7 @@ class ChikitsaDatabase {
       email: 'hospital@chikitsax.demo',
       role: 'HOSPITAL_ADMIN',
       phone: '+91 99304 88712',
-      hospitalId: 'HOSP-01'
+      hospitalId: 'HOSP-MH-01'
     }
   ];
 
@@ -85,17 +97,17 @@ class ChikitsaDatabase {
   ];
 
   private abhaProfile: ABHAProfile = {
-    abhaNumber: '14-XXXX-XXXX-XXXX',
-    abhaAddress: 'unregistered@abdm',
-    fullName: 'Guest Citizen',
-    dob: 'YYYY-MM-DD',
+    abhaNumber: '14-2026-9812-4401',
+    abhaAddress: 'ankit.chaudhary@abdm',
+    fullName: 'Ankit Kumar Chaudhary',
+    dob: '1996-06-20',
     gender: 'MALE',
-    bloodGroup: 'Not Registered',
-    mobile: 'Please Register',
-    address: 'Empanelled Network, India',
-    kycVerified: false,
-    linkedFacilitiesCount: 0,
-    qrPayload: 'https://healthid.ndhm.gov.in'
+    bloodGroup: 'B+',
+    mobile: '+91 98765 43210',
+    address: 'Shivajinagar, Pune, Maharashtra - 411005',
+    kycVerified: true,
+    linkedFacilitiesCount: 3,
+    qrPayload: 'https://healthid.ndhm.gov.in/verify?abha=14-2026-9812-4401'
   };
 
   private fhirRecords: FHIRRecord[] = [
@@ -494,7 +506,24 @@ class ChikitsaDatabase {
     }
   ];
 
-  private liveOPDQueues: LiveOPDToken[] = [];
+  private liveOPDQueues: LiveOPDToken[] = [
+    {
+      id: 'OPD-2026-9812',
+      referenceId: 'CHX-2026-9812',
+      patientId: 'USR-PAT-9821',
+      patientName: 'Ankit Kumar Chaudhary',
+      hospitalId: 'HOSP-MH-01',
+      hospitalName: 'Sassoon General Hospital & B.J. Government Medical College',
+      department: 'Cardiology',
+      doctorName: 'Dr. Rajesh Kulkarni',
+      appointmentDate: 'Today',
+      appointmentSlot: '11:30 AM - Room 104',
+      tokenNumber: 21,
+      currentServingToken: 17,
+      estimatedWaitMinutes: 16,
+      status: 'WAITING'
+    }
+  ];
 
   private genericDrugs: GenericDrugMapping[] = [
     {
@@ -681,7 +710,12 @@ class ChikitsaDatabase {
   getCurrentUser(): User {
     const saved = localStorage.getItem('chikitsax_v2_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+      try {
+        const u = JSON.parse(saved);
+        if (u && u.name && u.name !== 'Guest Citizen' && !u.isGuest) {
+          return u;
+        }
+      } catch (e) { /* ignore */ }
     }
     return this.currentUser;
   }
@@ -714,12 +748,15 @@ class ChikitsaDatabase {
   getABHAProfile(): ABHAProfile {
     const saved = localStorage.getItem('chikitsax_v2_abha');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+      try {
+        const p = JSON.parse(saved);
+        if (p && p.fullName && p.fullName !== 'Guest Citizen') return p;
+      } catch (e) { /* ignore */ }
     }
     const user = this.getCurrentUser();
-    if (!user.isGuest && user.name && user.name !== 'Guest Citizen') {
-      const generatedAbha = user.abhaNumber || `14-${new Date().getFullYear()}-4401-9218`;
-      const generatedAddr = user.abhaAddress || `${user.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@abdm`;
+    if (user.name && user.name !== 'Guest Citizen') {
+      const generatedAbha = user.abhaNumber || '14-2026-9812-4401';
+      const generatedAddr = user.abhaAddress || 'ankit.chaudhary@abdm';
       return {
         abhaNumber: generatedAbha,
         abhaAddress: generatedAddr,
@@ -727,10 +764,10 @@ class ChikitsaDatabase {
         dob: '1996-06-20',
         gender: 'MALE',
         bloodGroup: 'B+',
-        mobile: user.phone || '9800000000',
-        address: 'Maharashtra - India',
+        mobile: user.phone || '+91 98765 43210',
+        address: 'Shivajinagar, Pune, Maharashtra - 411005',
         kycVerified: true,
-        linkedFacilitiesCount: 1,
+        linkedFacilitiesCount: 3,
         qrPayload: `https://healthid.ndhm.gov.in/verify?abha=${generatedAbha}`
       };
     }
@@ -738,10 +775,6 @@ class ChikitsaDatabase {
   }
 
   getFHIRRecords(): FHIRRecord[] {
-    const user = this.getCurrentUser();
-    if (user.isGuest || user.name === 'Guest Citizen') {
-      return [];
-    }
     return this.fhirRecords;
   }
 

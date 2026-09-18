@@ -262,7 +262,18 @@ const dbState: MockDatabaseState = {
       }
     }
   ],
-  users: [],
+  users: [
+    {
+      id: 'USR-PAT-9821',
+      name: 'Ankit Kumar Chaudhary',
+      email: 'ankitkumarchaudhary641@gmail.com',
+      phone: '+91 98765 43210',
+      role: 'PATIENT',
+      abhaNumber: '14-2026-9812-4401',
+      abhaAddress: 'ankit.chaudhary@abdm',
+      isGuest: false
+    }
+  ],
   registeredDoctors: [
     {
       id: 'DOC-NMC-2024-01',

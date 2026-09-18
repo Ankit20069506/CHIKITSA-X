@@ -18,7 +18,7 @@ import { EmergencyRadarModal } from '../common/EmergencyRadarModal';
 import { VoiceIntakeView } from './VoiceIntakeView';
 import { VoiceIntakeModal } from './VoiceIntakeModal';
 import { CareFinanceHub } from '../finance/CareFinanceHub';
-import { Mic, Sparkles, ArrowRight, User as UserIcon, LogOut, KeyRound, MapPin, LocateFixed } from 'lucide-react';
+import { Mic, Sparkles, ArrowRight, User as UserIcon, LogOut, KeyRound, MapPin, LocateFixed, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import {
   getStoredPatientLocation,
   calculateHaversineDistanceKm,
@@ -154,29 +154,36 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
           </>
         ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
-                width: '38px',
-                height: '38px',
+                width: '42px',
+                height: '42px',
                 borderRadius: '50%',
-                background: '#10b981',
+                background: 'linear-gradient(135deg, #10b981 0%, #0284c7 100%)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontWeight: 800
+                fontWeight: 800,
+                fontSize: '1rem',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
               }}>
-                ✓
+                {currentUser.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>{currentUser.name}</span>
-                  <span style={{ fontSize: '0.72rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-                    ABDM KYC Verified
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {language === 'HI' ? 'पंजीकृत मरीज (Registered Patient):' : 'Registered Patient:'}
+                  </span>
+                  <strong style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>
+                    {currentUser.name}
+                  </strong>
+                  <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <CheckCircle2 size={11} /> ABDM KYC Verified
                   </span>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  ABHA: <strong>{profile.abhaNumber}</strong> • Mobile: {currentUser.phone || profile.mobile} • {currentUser.email || profile.abhaAddress}
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  ABHA ID: <strong style={{ color: '#0284c7' }}>{profile.abhaNumber}</strong> • Mobile: <strong>{currentUser.phone || profile.mobile}</strong> • {currentUser.email || profile.abhaAddress}
                 </div>
               </div>
             </div>
@@ -239,6 +246,78 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
 
       {activeSubTab === 'OVERVIEW' && (
         <>
+          {/* 👤 Registered Patient Profile Card */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%)',
+            border: '2px solid rgba(16, 185, 129, 0.35)',
+            borderRadius: 'var(--radius-md)',
+            padding: '18px 22px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px',
+            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '54px',
+                height: '54px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #10b981 0%, #0284c7 100%)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 900,
+                fontSize: '1.3rem',
+                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
+              }}>
+                {currentUser.name ? currentUser.name.split(' ').map(w => w[0]).slice(0, 2).join('') : 'PT'}
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#059669', fontWeight: 800 }}>
+                    {language === 'HI' ? '✅ पंजीकृत मरीज प्रोफाइल' : '✅ Registered Patient Profile'}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <ShieldCheck size={12} /> ABDM KYC VERIFIED
+                  </span>
+                </div>
+
+                <h3 style={{ fontSize: '1.35rem', margin: '3px 0 6px', fontWeight: 800, color: 'var(--text-main)' }}>
+                  {currentUser.name}
+                </h3>
+
+                <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
+                  <span>🪪 ABHA ID: <strong style={{ color: '#0284c7' }}>{profile.abhaNumber}</strong></span>
+                  <span>📱 Phone: <strong>{currentUser.phone || profile.mobile}</strong></span>
+                  <span>📧 Email: <strong>{currentUser.email || profile.abhaAddress}</strong></span>
+                  <span>🩸 Blood Group: <strong>{profile.bloodGroup || 'B+'}</strong></span>
+                  <span>📍 City: <strong>Pune, Maharashtra</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setActiveSubTab('ABHA')}
+                className="btn btn-teal btn-sm"
+                style={{ fontWeight: 700, fontSize: '0.82rem' }}
+              >
+                🪪 {language === 'HI' ? 'आभा 2.0 हेल्थ कार्ड' : 'ABHA 2.0 Health Card'}
+              </button>
+              <button
+                onClick={() => setActiveSubTab('QUEUE')}
+                className="btn btn-primary btn-sm"
+                style={{ fontWeight: 700, fontSize: '0.82rem' }}
+              >
+                🎟️ {language === 'HI' ? 'लाइव ओपीडी टोकन' : 'Live OPD Tokens'}
+              </button>
+            </div>
+          </div>
           <div style={{
             background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%)',
             border: '1px solid var(--border-subtle)',

@@ -52,11 +52,9 @@ export const App: React.FC = () => {
 
   const handleRoleChange = (role: UserRole) => {
     setCurrentRole(role);
-    if (role !== 'PATIENT') {
-      const users = db.getDemoUsers();
-      const matched = users.find(u => u.role === role);
-      if (matched) db.setCurrentUser(matched);
-    }
+    const users = db.getDemoUsers();
+    const matched = users.find(u => u.role === role);
+    if (matched) db.setCurrentUser(matched);
 
     if (role === 'PATIENT') setActiveTab('PATIENT_PORTAL');
     else if (role === 'DOCTOR') setActiveTab('DOCTOR_PORTAL');
