@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { AppLanguage, BodySymptom, Hospital, LiveOPDToken, User, ABHAProfile } from '../../types';
 import { db } from '../../db/database';
 import { BodyMapSelector } from './BodyMapSelector';
@@ -18,7 +18,14 @@ import { EmergencyRadarModal } from '../common/EmergencyRadarModal';
 import { VoiceIntakeView } from './VoiceIntakeView';
 import { VoiceIntakeModal } from './VoiceIntakeModal';
 import { CareFinanceHub } from '../finance/CareFinanceHub';
-import { Mic, Sparkles, ArrowRight, User as UserIcon, LogOut, KeyRound } from 'lucide-react';
+import { Mic, Sparkles, ArrowRight, User as UserIcon, LogOut, KeyRound, MapPin, LocateFixed } from 'lucide-react';
+import {
+  getStoredPatientLocation,
+  calculateHaversineDistanceKm,
+  estimateDrivingEtaMinutes,
+  DEFAULT_PATIENT_LOCATION,
+  type PatientCoordinates
+} from '../../services/geolocationService';
 
 interface Props {
   language: AppLanguage;
@@ -49,6 +56,40 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
   const [emiGapAmount, setEmiGapAmount] = useState<number | null>(null);
   const [isCrowdfundingOpen, setIsCrowdfundingOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  // Patient live location and proximity recommendation
+  const [patientLocation, setPatientLocation] = useState<PatientCoordinates | null>(() => getStoredPatientLocation());
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setPatientLocation(getStoredPatientLocation());
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const nearestHospital = useMemo(() => {
+    const hospitals = db.getHospitals();
+    const coords = patientLocation || DEFAULT_PATIENT_LOCATION;
+    if (!hospitals.length) return null;
+
+    let closest = hospitals[0];
+    let minDistance = Infinity;
+
+    hospitals.forEach(h => {
+      const dist = calculateHaversineDistanceKm(coords.lat, coords.lng, h.mapsCoord.lat, h.mapsCoord.lng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closest = h;
+      }
+    });
+
+    return {
+      ...closest,
+      distanceKm: minDistance,
+      etaMins: estimateDrivingEtaMinutes(minDistance)
+    };
+  }, [patientLocation]);
 
   return (
     <div>
@@ -94,11 +135,22 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
                 </div>
               </div>
             </div>
-            {onOpenAuth && (
-              <button onClick={onOpenAuth} className="btn btn-primary btn-sm">
-                <KeyRound size={14} /> {language === 'HI' ? 'ओटीपी से लॉगिन / पंजीकरण करें' : 'Login / Register with Real OTP'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setActiveSubTab('HOSPITALS')}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem' }}
+                title="Location and Hospital Recommendations"
+              >
+                <LocateFixed size={13} color={patientLocation ? '#10b981' : '#0284c7'} />
+                <span>{patientLocation ? `📍 ${patientLocation.label.split(',')[0]}` : (language === 'HI' ? '📍 लोकेशन सेट करें' : '📍 Allow Location')}</span>
               </button>
-            )}
+              {onOpenAuth && (
+                <button onClick={onOpenAuth} className="btn btn-primary btn-sm">
+                  <KeyRound size={14} /> {language === 'HI' ? 'ओटीपी से लॉगिन / पंजीकरण करें' : 'Login / Register with Real OTP'}
+                </button>
+              )}
+            </div>
           </>
         ) : (
           <>
@@ -128,17 +180,28 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => {
-                db.logout();
-                setCurrentUser(db.getCurrentUser());
-                setProfile(db.getABHAProfile());
-              }}
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.78rem' }}
-            >
-              <LogOut size={13} /> {language === 'HI' ? 'लॉगआउट / नया खाता' : 'Logout / Switch Patient'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setActiveSubTab('HOSPITALS')}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem' }}
+                title="Location and Hospital Recommendations"
+              >
+                <LocateFixed size={13} color={patientLocation ? '#10b981' : '#0284c7'} />
+                <span>{patientLocation ? `📍 ${patientLocation.label.split(',')[0]}` : (language === 'HI' ? '📍 लोकेशन सेट करें' : '📍 Allow Location')}</span>
+              </button>
+              <button
+                onClick={() => {
+                  db.logout();
+                  setCurrentUser(db.getCurrentUser());
+                  setProfile(db.getABHAProfile());
+                }}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.78rem' }}
+              >
+                <LogOut size={13} /> {language === 'HI' ? 'लॉगआउट / नया खाता' : 'Logout / Switch Patient'}
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -158,7 +221,7 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
           { id: 'QUEUE', label: language === 'HI' ? 'लाइव ओपीडी टोकन' : 'Live OPD Queue & Pass' },
           { id: 'ABHA', label: language === 'HI' ? 'आभा 2.0 हेल्थ वॉलेट' : 'ABHA 2.0 & FHIR Records' },
           { id: 'FINTECH', label: language === 'HI' ? '🏛️ योजनाएं, बीमा व एनजीओ' : '🏛️ Schemes, Insurance & NGO' },
-          { id: 'HOSPITALS', label: language === 'HI' ? 'अस्पताल खोजक' : 'Empaneled Hospitals' },
+          { id: 'HOSPITALS', label: language === 'HI' ? '📍 नजदीकी अस्पताल सिफारिश' : '📍 Nearby Hospitals & Location' },
           { id: 'LABS', label: language === 'HI' ? 'लैब बायोमार्कर' : 'Lab Biomarker Analyzer' },
           { id: 'MEDICINES', label: language === 'HI' ? 'जन औषधि जेनरिक बचत' : 'Jan Aushadhi Generic Savings' },
           { id: 'SAFETY', label: language === 'HI' ? 'दवा सुरक्षा चेकर' : 'Drug Interaction Safety' }
@@ -222,6 +285,65 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
                 className="btn btn-secondary btn-sm"
               >
                 {language === 'HI' ? 'पूरा वॉयस व्यू' : 'Voice Dashboard'} <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* 📍 Proximity Hospital Recommendation Banner */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%)',
+            border: '1px solid rgba(2, 132, 199, 0.25)',
+            borderRadius: 'var(--radius-md)',
+            padding: '16px 20px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff'
+              }}>
+                <MapPin size={22} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{language === 'HI' ? '📍 नजदीकी अस्पताल एवं आपातकालीन सिफारिश' : '📍 Proximity Hospital Recommendation'}</span>
+                  {patientLocation && (
+                    <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#fff', padding: '1px 7px', borderRadius: '10px' }}>
+                      GPS Active
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {nearestHospital ? (
+                    language === 'HI'
+                      ? `आपके स्थान से निकटतम: ${nearestHospital.name} (${nearestHospital.distanceKm} km • ~${nearestHospital.etaMins} मिनट ईटीए) • आईसीयू उपलब्ध: ${nearestHospital.bedTelemetry.icuAvailable}`
+                      : `Closest to your location: ${nearestHospital.name} (${nearestHospital.distanceKm} km • ~${nearestHospital.etaMins} mins ETA) • Free ICU Beds: ${nearestHospital.bedTelemetry.icuAvailable}`
+                  ) : (
+                    language === 'HI'
+                      ? 'सटीक दूरी एवं सबसे तेज एम्बुलेंस मार्ग हेतु अपनी लाइव जीपीएस लोकेशन की अनुमति दें।'
+                      : 'Allow GPS location access to automatically recommend the closest hospital & calculate real-time ETA.'
+                  )}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setActiveSubTab('HOSPITALS')}
+                className="btn btn-primary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <LocateFixed size={14} /> {language === 'HI' ? 'अस्पताल व मैप देखें' : 'View Nearby on Map'}
               </button>
             </div>
           </div>

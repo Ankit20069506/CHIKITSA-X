@@ -25,19 +25,28 @@ interface Props {
   hospitals: Hospital[];
   onSelectHospital: (hospital: Hospital) => void;
   onCallAmbulance: (hospital: Hospital) => void;
+  userLocation?: { lat: number; lng: number; label: string };
 }
 
 export const HospitalGeospatialMap: React.FC<Props> = ({
   language,
   hospitals,
   onSelectHospital,
-  onCallAmbulance
+  onCallAmbulance,
+  userLocation: userLocationProp
 }) => {
-  // User's reference location (Baner / Pune: 18.5582° N, 73.7806° E)
-  const userLocation = { lat: 18.5582, lng: 73.7806, label: 'Your Location (Baner, Pune)' };
+  // User's reference location (Live GPS or Fallback)
+  const userLocation = userLocationProp || { lat: 18.5582, lng: 73.7806, label: 'Your Location (Baner, Pune)' };
 
   // Map state: center coordinates and zoom level
   const [center, setCenter] = useState<{ lat: number; lng: number }>(userLocation);
+
+  // Sync center when user location updates
+  React.useEffect(() => {
+    if (userLocationProp) {
+      setCenter(userLocationProp);
+    }
+  }, [userLocationProp?.lat, userLocationProp?.lng]);
   const [zoom, setZoom] = useState<number>(13);
   const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');

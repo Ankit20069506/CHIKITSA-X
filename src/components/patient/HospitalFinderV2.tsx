@@ -17,10 +17,24 @@ import {
   Award,
   Zap,
   ShieldAlert,
-  ArrowUpDown
+  ArrowUpDown,
+  LocateFixed,
+  Compass,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { HospitalGeospatialMap } from '../hospital/HospitalGeospatialMap';
 import { AmbulanceLiveTrackingModal } from '../emergency/AmbulanceLiveTrackingModal';
+import {
+  type PatientCoordinates,
+  PRESET_LOCATIONS,
+  DEFAULT_PATIENT_LOCATION,
+  calculateHaversineDistanceKm,
+  estimateDrivingEtaMinutes,
+  getStoredPatientLocation,
+  savePatientLocation,
+  requestLiveBrowserLocation
+} from '../../services/geolocationService';
 
 interface Props {
   language: AppLanguage;
@@ -42,12 +56,52 @@ export const HospitalFinderV2: React.FC<Props> = ({
   const [internalAmbulanceHospital, setInternalAmbulanceHospital] = useState<Hospital | null>(null);
   const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
 
+  // Patient Geolocation State
+  const [patientLocation, setPatientLocation] = useState<PatientCoordinates | null>(() => getStoredPatientLocation());
+  const [locationStatus, setLocationStatus] = useState<'IDLE' | 'DETECTING' | 'GRANTED' | 'DENIED' | 'UNSUPPORTED'>(() => {
+    return getStoredPatientLocation() ? 'GRANTED' : 'IDLE';
+  });
+  const [locationError, setLocationError] = useState<string>('');
+  const [showPresetDropdown, setShowPresetDropdown] = useState<boolean>(false);
+
   // Triad criteria priority state
   const [triadPriority, setTriadPriority] = useState<TriadPriority>('BALANCED');
   const [locationWeight, setLocationWeight] = useState<number>(33);
   const [costWeight, setCostWeight] = useState<number>(33);
   const [careWeight, setCareWeight] = useState<number>(34);
   const [showWeightSliders, setShowWeightSliders] = useState<boolean>(false);
+
+  // Request browser GPS location
+  const handleRequestLocation = async () => {
+    setLocationStatus('DETECTING');
+    setLocationError('');
+    const res = await requestLiveBrowserLocation();
+    if (res.success && res.location) {
+      setPatientLocation(res.location);
+      setLocationStatus('GRANTED');
+      handlePresetChange('NEARBY_LOCATION');
+    } else {
+      setLocationStatus(res.code === 'PERMISSION_DENIED' ? 'DENIED' : 'IDLE');
+      setLocationError(res.error || 'Failed to detect live location.');
+    }
+  };
+
+  // Select predefined area preset
+  const handleSelectPreset = (preset: typeof PRESET_LOCATIONS[0]) => {
+    const loc: PatientCoordinates = {
+      lat: preset.lat,
+      lng: preset.lng,
+      label: preset.label,
+      source: 'MANUAL_PRESET',
+      timestamp: new Date().toISOString()
+    };
+    savePatientLocation(loc);
+    setPatientLocation(loc);
+    setLocationStatus('GRANTED');
+    setLocationError('');
+    setShowPresetDropdown(false);
+    handlePresetChange('NEARBY_LOCATION');
+  };
 
   // Quick preset selector handler
   const handlePresetChange = (preset: TriadPriority) => {
@@ -71,11 +125,23 @@ export const HospitalFinderV2: React.FC<Props> = ({
     }
   };
 
-  // Compute Triad Match Score for each hospital
+  // Active patient coordinates (Live GPS, selected preset, or default reference)
+  const activeCoordinates = patientLocation || DEFAULT_PATIENT_LOCATION;
+
+  // Compute live distance, driving ETA, and Triad Match Score for each hospital
   const scoredHospitals = useMemo(() => {
     return hospitals.map(hosp => {
-      // 1. Location Score (0 - 100): Closest (e.g. 1.9km) gets near 100, 10km gets lower
-      const locScore = Math.max(10, Math.min(100, Math.round((1 - (hosp.distanceKm - 1) / 10) * 100)));
+      // Real Haversine distance in Kilometers from patient's coordinates to hospital
+      const realDistanceKm = calculateHaversineDistanceKm(
+        activeCoordinates.lat,
+        activeCoordinates.lng,
+        hosp.mapsCoord.lat,
+        hosp.mapsCoord.lng
+      );
+      const drivingEtaMinutes = estimateDrivingEtaMinutes(realDistanceKm);
+
+      // 1. Location Score (0 - 100): Closest gets ~100, drops smoothly with distance
+      const locScore = Math.max(10, Math.min(100, Math.round((1 - (realDistanceKm - 1) / 12) * 100)));
 
       // 2. Cost Score (0 - 100): From costProfile or fallback
       const costScore = hosp.costProfile?.costScore || (hosp.type === 'GOVERNMENT' ? 98 : hosp.type === 'CHARITABLE_TRUST' ? 90 : 82);
@@ -91,6 +157,8 @@ export const HospitalFinderV2: React.FC<Props> = ({
 
       return {
         ...hosp,
+        distanceKm: realDistanceKm,
+        drivingEtaMinutes,
         triadMetrics: {
           locationScore: locScore,
           costScore,
@@ -99,7 +167,7 @@ export const HospitalFinderV2: React.FC<Props> = ({
         }
       };
     });
-  }, [hospitals, locationWeight, costWeight, careWeight]);
+  }, [hospitals, activeCoordinates, locationWeight, costWeight, careWeight]);
 
   // Filter & Sort based on active Triad Priority
   const filteredAndSortedHospitals = useMemo(() => {
@@ -187,6 +255,185 @@ export const HospitalFinderV2: React.FC<Props> = ({
           >
             <Map size={14} /> {language === 'HI' ? 'जियोस्पेशियल मैप' : 'Geospatial Map'}
           </button>
+        </div>
+      </div>
+
+      {/* 📍 Patient Live Location & Geolocation Permission Banner */}
+      <div style={{
+        background: locationStatus === 'GRANTED'
+          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%)'
+          : locationStatus === 'DENIED'
+          ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(245, 158, 11, 0.08) 100%)'
+          : 'linear-gradient(135deg, rgba(2, 132, 199, 0.12) 0%, rgba(99, 102, 241, 0.1) 100%)',
+        border: locationStatus === 'GRANTED'
+          ? '1px solid rgba(16, 185, 129, 0.35)'
+          : locationStatus === 'DENIED'
+          ? '1px solid rgba(239, 68, 68, 0.35)'
+          : '2px solid rgba(2, 132, 199, 0.45)',
+        borderRadius: 'var(--radius-md)',
+        padding: '16px 20px',
+        marginBottom: '20px',
+        boxShadow: locationStatus !== 'GRANTED' ? '0 4px 16px rgba(2, 132, 199, 0.15)' : 'none',
+        position: 'relative'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', maxWidth: '680px' }}>
+            <div style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '50%',
+              background: locationStatus === 'GRANTED' ? '#10b981' : locationStatus === 'DENIED' ? '#ef4444' : '#0284c7',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            }}>
+              {locationStatus === 'GRANTED' ? <LocateFixed size={22} /> : <MapPin size={22} />}
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <strong style={{ fontSize: '0.98rem', color: 'var(--text-main)' }}>
+                  {locationStatus === 'GRANTED'
+                    ? (language === 'HI' ? '📍 मरीज का लाइव जीपीएस स्थान सक्रिय (Live GPS Active)' : '📍 Patient Live GPS Location Active')
+                    : locationStatus === 'DENIED'
+                    ? (language === 'HI' ? '⚠️ लोकेशन अनुमति अस्वीकृत (Location Permission Blocked)' : '⚠️ Location Permission Denied by Browser')
+                    : (language === 'HI' ? '📍 निकटतम अस्पताल सिफारिश हेतु लोकेशन की अनुमति दें' : '📍 Allow Location Access for Proximity-Based Hospital Recommendations')}
+                </strong>
+
+                {locationStatus === 'GRANTED' && (
+                  <span style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: 'rgba(16, 185, 129, 0.18)',
+                    color: '#059669',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <span className="live-dot" style={{ backgroundColor: '#10b981', width: '6px', height: '6px' }} />
+                    {patientLocation?.source === 'GPS_LIVE' ? 'GPS Lock' : 'Area Preset'}
+                  </span>
+                )}
+              </div>
+
+              <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                {locationStatus === 'GRANTED'
+                  ? (language === 'HI'
+                    ? `वर्तमान संदर्भ स्थान: ${patientLocation?.label} • सभी दूरी (km), आपातकालीन एम्बुलेंस ईटीए (ETA) एवं नजदीकी अस्पताल आपके सटीक स्थान अनुसार पुनर्गणित हैं।`
+                    : `Active Coordinates: ${patientLocation?.label} • All hospital distances (km), ambulance arrival ETAs, and top recommendations are calibrated to your precise location.`)
+                  : locationStatus === 'DENIED'
+                  ? (language === 'HI'
+                    ? 'ब्राउज़र में लोकेशन ब्लॉक है। कृपया नीचे दिए गए शहरों/क्षेत्रों में से अपना नजदीकी क्षेत्र चुनें ताकि सही दूरी की गणना हो सके।'
+                    : 'Browser location is blocked. Please select your nearest city or area below to calibrate distance recommendations.')
+                  : (language === 'HI'
+                    ? 'अपनी लाइव जीपीएस लोकेशन शेयर करें ताकि CHIKITSA-X आपके सबसे नजदीकी आईसीयू ट्रॉमा सेंटर, सबसे तेज एम्बुलेंस मार्ग व वास्तविक यात्रा समय (ETA) की सिफारिश कर सके।'
+                    : 'Share your device GPS location so CHIKITSA-X can automatically recommend the closest emergency hospital with live ICU beds and fastest ambulance transit.')}
+              </p>
+
+              {locationError && (
+                <div style={{ marginTop: '6px', color: '#ef4444', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={13} /> {locationError}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Action Buttons & Manual Area Picker */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleRequestLocation}
+              disabled={locationStatus === 'DETECTING'}
+              className={locationStatus === 'GRANTED' ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                padding: '8px 16px'
+              }}
+            >
+              {locationStatus === 'DETECTING' ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" />
+                  {language === 'HI' ? 'स्थान खोज रहे हैं...' : 'Detecting GPS...'}
+                </>
+              ) : locationStatus === 'GRANTED' ? (
+                <>
+                  <RefreshCw size={14} />
+                  {language === 'HI' ? 'जीपीएस रिफ्रेश करें' : 'Refresh GPS'}
+                </>
+              ) : (
+                <>
+                  <LocateFixed size={15} />
+                  {language === 'HI' ? 'स्थान की अनुमति दें (Allow Location)' : 'Allow Live Location Access'}
+                </>
+              )}
+            </button>
+
+            {/* Manual Preset Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setShowPresetDropdown(!showPresetDropdown)}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}
+              >
+                <Compass size={14} />
+                {language === 'HI' ? 'क्षेत्र बदलें' : 'Select Area'}
+              </button>
+
+              {showPresetDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '110%',
+                  width: '260px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-xl)',
+                  zIndex: 50,
+                  overflow: 'hidden'
+                }}>
+                  <div style={{ padding: '8px 12px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)', fontSize: '0.75rem', fontWeight: 700 }}>
+                    {language === 'HI' ? 'नजदीकी क्षेत्र चुनें:' : 'Select Area / Landmark:'}
+                  </div>
+                  <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
+                    {PRESET_LOCATIONS.map(preset => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleSelectPreset(preset)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '8px 12px',
+                          border: 'none',
+                          borderBottom: '1px solid var(--border-subtle)',
+                          background: patientLocation?.label === preset.label ? 'rgba(2, 132, 199, 0.12)' : 'transparent',
+                          color: 'var(--text-main)',
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <span>{preset.label}</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{preset.city}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -387,50 +634,130 @@ export const HospitalFinderV2: React.FC<Props> = ({
           hospitals={filteredAndSortedHospitals}
           onSelectHospital={handleSelect}
           onCallAmbulance={handleDispatchAmbulance}
+          userLocation={activeCoordinates}
         />
       ) : (
-        /* Triad Ranking Grid View */
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '16px' }}>
-          {filteredAndSortedHospitals.map((hosp, index) => {
-            const isTopMatch = index === 0;
-            const isSelected = selectedHospitalId === hosp.id;
-
-            return (
-              <div
-                key={hosp.id}
-                style={{
-                  background: isSelected ? 'rgba(2, 132, 199, 0.05)' : 'var(--bg-secondary)',
-                  border: isSelected ? '2px solid #0284c7' : isTopMatch ? '2px solid #10b981' : '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '20px',
+        <>
+          {/* 🌟 Proximity-Based #1 Top Recommendation Hero Banner */}
+          {topRecommended && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12) 0%, rgba(16, 185, 129, 0.12) 100%)',
+              border: '2px solid #0284c7',
+              borderRadius: 'var(--radius-md)',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '16px',
+              boxShadow: '0 4px 20px rgba(2, 132, 199, 0.15)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #10b981 100%)',
                   display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  boxShadow: isTopMatch ? '0 8px 24px -6px rgba(16, 185, 129, 0.2)' : 'none',
-                  position: 'relative',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                {/* Top Badge: #1 Match or Selection Indicator */}
-                {isTopMatch && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '-12px',
-                    right: '16px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    color: '#ffffff',
-                    padding: '3px 10px',
-                    borderRadius: '12px',
-                    fontSize: '0.7rem',
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)'
-                  }}>
-                    <Award size={13} /> #1 Best Triad Match ({hosp.triadMetrics.compositeMatch}%)
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+                  flexShrink: 0
+                }}>
+                  <LocateFixed size={24} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: '10px'
+                    }}>
+                      {triadPriority === 'NEARBY_LOCATION'
+                        ? (language === 'HI' ? '🏆 निकटतम अस्पताल सिफारिश' : '🏆 #1 Nearest Recommendation')
+                        : (language === 'HI' ? '🏆 सर्वश्रेष्ठ अनुशंसित अस्पताल' : '🏆 Top AI Recommendation')}
+                    </span>
+                    <span style={{ fontSize: '0.8rem', color: '#059669', fontWeight: 700 }}>
+                      📍 {topRecommended.distanceKm} km away • ~{topRecommended.drivingEtaMinutes} mins driving ETA
+                    </span>
                   </div>
-                )}
+                  <h3 style={{ margin: '4px 0 2px', fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                    {topRecommended.name}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    {topRecommended.city} • Care Score: <strong>{topRecommended.chikitsaCareScore}/100</strong> • ICU Free: <strong>{topRecommended.bedTelemetry.icuAvailable}</strong> • OPD Fee: <strong>{topRecommended.costProfile ? `₹${topRecommended.costProfile.opdConsultFee}` : '₹0'}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => handleSelect(topRecommended)}
+                  className="btn btn-primary btn-sm"
+                  style={{ fontWeight: 700, padding: '8px 16px', fontSize: '0.82rem' }}
+                >
+                  ✓ {language === 'HI' ? 'इस अस्पताल को चुनें व ओपीडी बुक करें' : 'Select & Book OPD'}
+                </button>
+                <button
+                  onClick={() => handleDispatchAmbulance(topRecommended)}
+                  className="btn btn-emergency btn-sm"
+                  style={{ fontWeight: 700, padding: '8px 16px', fontSize: '0.82rem' }}
+                >
+                  🚑 {language === 'HI' ? 'एम्बुलेंस बुलाएं' : 'Dispatch ALS'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Triad Ranking Grid View */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '16px' }}>
+            {filteredAndSortedHospitals.map((hosp, index) => {
+              const isTopMatch = index === 0;
+              const isSelected = selectedHospitalId === hosp.id;
+
+              return (
+                <div
+                  key={hosp.id}
+                  style={{
+                    background: isSelected ? 'rgba(2, 132, 199, 0.05)' : 'var(--bg-secondary)',
+                    border: isSelected ? '2px solid #0284c7' : isTopMatch ? '2px solid #10b981' : '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    boxShadow: isTopMatch ? '0 8px 24px -6px rgba(16, 185, 129, 0.2)' : 'none',
+                    position: 'relative',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {/* Top Badge: #1 Match or Selection Indicator */}
+                  {isTopMatch && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '-12px',
+                      right: '16px',
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: '#ffffff',
+                      padding: '3px 10px',
+                      borderRadius: '12px',
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)'
+                    }}>
+                      <Award size={13} /> {triadPriority === 'NEARBY_LOCATION'
+                        ? `#1 Nearest (${hosp.distanceKm} km • ~${hosp.drivingEtaMinutes} mins)`
+                        : `#1 Best Triad Match (${hosp.triadMetrics.compositeMatch}%)`}
+                    </div>
+                  )}
 
                 <div>
                   {/* Hospital Header & Badges */}
@@ -492,7 +819,7 @@ export const HospitalFinderV2: React.FC<Props> = ({
                         {hosp.distanceKm} km
                       </div>
                       <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                        ~{Math.round(hosp.distanceKm * 2.2)} mins drive
+                        ~{hosp.drivingEtaMinutes} mins ETA
                       </div>
                     </div>
 
@@ -578,6 +905,7 @@ export const HospitalFinderV2: React.FC<Props> = ({
             );
           })}
         </div>
+        </>
       )}
 
       {/* Internal Ambulance Tracking Modal Fallback */}
