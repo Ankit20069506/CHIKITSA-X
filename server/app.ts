@@ -7,6 +7,7 @@ import {
   requestSanitizer
 } from './middleware/securityMiddleware';
 import { notificationService } from './services/notificationService';
+import { initPostgres, isPostgresConnected, pgUsers, pgDoctors, pgAppointments, pgAudit } from './db/postgres';
 import {
   encryptPHI,
   decryptPHI,
@@ -19,6 +20,9 @@ import {
 } from './security';
 
 export const app: Express = express();
+
+// Initialize PostgreSQL (with automatic in-memory fallback)
+initPostgres().catch(err => console.warn('PostgreSQL auto-init warning:', err));
 
 // 1. Core Middlewares
 app.use(express.json({ limit: '2mb' }));
@@ -209,6 +213,9 @@ function recordAuditEvent(eventType: string, actorId: string, actorRole: string,
   };
 
   dbState.auditChain.push(block);
+  if (isPostgresConnected()) {
+    pgAudit.insertBlock(block).catch(() => {});
+  }
   return block;
 }
 
@@ -221,6 +228,11 @@ app.get('/api/health', (_req: Request, res: Response) => {
     service: 'CHIKITSA-X Enterprise Healthcare API Hub',
     version: '2.0.0',
     timestamp: new Date().toISOString(),
+    database: {
+      engine: 'PostgreSQL',
+      connected: isPostgresConnected(),
+      configured: !!process.env.DATABASE_URL
+    },
     security: {
       aes256Encryption: 'ACTIVE',
       jwtAuth: 'ACTIVE',
@@ -346,6 +358,19 @@ app.post('/api/auth/login-patient', authSensitiveLimiter, (req: Request, res: Re
       abhaAddress: `${(email ? email.split('@')[0] : 'patient').replace(/[^a-z0-9]/gi, '')}@abdm`
     };
     dbState.users.push(patient);
+
+    if (isPostgresConnected()) {
+      pgUsers.insert({
+        id: patient.id,
+        name: patient.name,
+        email: patient.email || undefined,
+        phone: patient.phone || undefined,
+        role: patient.role,
+        abhaNumber: patient.abhaNumber,
+        abhaAddress: patient.abhaAddress,
+        kycVerified: true
+      }).catch(err => console.warn('[PostgreSQL] Failed to persist patient profile in login:', err?.message || err));
+    }
   }
 
   const token = signJWT({
@@ -415,6 +440,24 @@ app.post('/api/auth/register-patient', authSensitiveLimiter, (req: Request, res:
 
   dbState.users.push(newUser);
 
+  if (isPostgresConnected()) {
+    pgUsers.insert({
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      phone: newUser.phone,
+      role: newUser.role,
+      dob: newUser.dob,
+      gender: newUser.gender,
+      bloodGroup: newUser.bloodGroup,
+      city: newUser.city,
+      state: newUser.state,
+      abhaNumber: newUser.abhaNumber,
+      abhaAddress: newUser.abhaAddress,
+      kycVerified: newUser.kycVerified
+    }).catch(err => console.warn('[PostgreSQL] Failed to persist registered patient:', err?.message || err));
+  }
+
   // Sign Secure JWT Token
   const token = signJWT({
     sub: newUser.id,
@@ -468,6 +511,23 @@ app.post('/api/auth/register-doctor', authSensitiveLimiter, (req: Request, res: 
   };
 
   dbState.registeredDoctors.push(newDoctor);
+
+  if (isPostgresConnected()) {
+    pgDoctors.insert({
+      id: newDoctor.id,
+      name: newDoctor.name,
+      email: newDoctor.email,
+      phone: newDoctor.phone,
+      nmcRegistrationId: newDoctor.nmcRegistrationId,
+      specialty: newDoctor.specialty,
+      qualifications: newDoctor.qualifications,
+      experienceYears: newDoctor.experienceYears,
+      hospitalAffiliation: newDoctor.hospitalAffiliation,
+      department: newDoctor.department,
+      isNmcVerified: newDoctor.isNmcVerified,
+      digitalSignatureId: newDoctor.digitalSignatureId
+    }).catch(err => console.warn('[PostgreSQL] Failed to persist registered doctor:', err?.message || err));
+  }
 
   const token = signJWT({
     sub: newDoctor.id,
@@ -683,7 +743,7 @@ app.get('/api/emergency/track/:unitId', (req: Request, res: Response) => {
 // 5. LIVE OPD QUEUE TOKENS API
 // ==========================================
 app.post('/api/opd/book', (req: Request, res: Response) => {
-  const { hospitalId, department = 'General Medicine', doctorName, patientName = 'Ankit Patel' } = req.body;
+  const { hospitalId, department = 'General Medicine', doctorName, patientName = 'Verified Patient', patientId } = req.body;
 
   const targetHospital = dbState.hospitals.find(h => h.id === hospitalId) || dbState.hospitals[0];
   const tokenId = `OPD-2026-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -706,6 +766,25 @@ app.post('/api/opd/book', (req: Request, res: Response) => {
   };
 
   dbState.liveOPDQueues.push(tokenRecord);
+
+  if (isPostgresConnected()) {
+    pgAppointments.insert({
+      id: tokenRecord.id,
+      referenceId: tokenRecord.referenceId,
+      patientId: patientId || 'USR-PAT-GUEST',
+      patientName: tokenRecord.patientName,
+      hospitalId: tokenRecord.hospitalId,
+      hospitalName: tokenRecord.hospitalName,
+      department: tokenRecord.department,
+      doctorName: tokenRecord.doctorName,
+      appointmentDate: tokenRecord.appointmentDate,
+      appointmentSlot: tokenRecord.appointmentSlot,
+      tokenNumber: tokenRecord.tokenNumber,
+      currentServingToken: tokenRecord.currentServingToken,
+      estimatedWaitMinutes: tokenRecord.estimatedWaitMinutes,
+      status: tokenRecord.status
+    }).catch(err => console.warn('[PostgreSQL] Failed to persist OPD appointment:', err?.message || err));
+  }
 
   recordAuditEvent('OPD_BOOKING', patientName, 'PATIENT', tokenId, {
     hospital: targetHospital.name,
