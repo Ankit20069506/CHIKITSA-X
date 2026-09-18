@@ -2,10 +2,15 @@ import type { Hospital, User, DoctorProfile, LiveOPDToken } from '../types';
 import { db } from '../db/database';
 import { clientSecurity } from './security';
 
-// API Base URL (Relative for Vercel/production, or localhost:5000 in separate dev)
-const API_BASE_URL = typeof window !== 'undefined' && window.location.port === '5173'
-  ? 'http://localhost:5000/api'
-  : '/api';
+// API Base URL (Standard relative '/api' for Vercel production & Vite proxy)
+const getBaseUrl = (): string => {
+  if (typeof window === 'undefined') return '/api';
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envUrl) return envUrl;
+  return '/api';
+};
+
+const API_BASE_URL = getBaseUrl();
 
 class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<{ success: boolean; data?: T; error?: string }> {
@@ -25,6 +30,30 @@ class ApiClient {
         ...options,
         headers
       });
+
+      // Guard against HTML responses (e.g. Vite SPA fallback or CDN HTML 404/504 error pages)
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) {
+        // In local development, if Vite proxy was bypassed, attempt direct call to Express port 5000
+        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+          try {
+            const fallbackResponse = await fetch(`http://localhost:5000/api${endpoint.startsWith('/') ? '' : '/'}${endpoint}`, {
+              ...options,
+              headers
+            });
+            if (fallbackResponse.ok) {
+              const retryType = fallbackResponse.headers.get('content-type') || '';
+              if (!retryType.includes('text/html')) {
+                const retryData = await fallbackResponse.json();
+                return { success: true, data: retryData };
+              }
+            }
+          } catch {
+            // Local direct port 5000 unreachable
+          }
+        }
+        return { success: false, error: `Endpoint ${endpoint} returned HTML (${response.status}) instead of JSON.` };
+      }
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ error: response.statusText }));

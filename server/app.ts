@@ -38,6 +38,39 @@ app.use(healthcareSecurityHeaders);
 app.use(requestSanitizer);
 app.use(generalApiLimiter);
 
+// Universal Path Normalizer: Supports both local Express (port 5000) and Vercel serverless functions
+// Handles requests with or without /api prefix, and handles Vercel rewrite paths and catch-all slugs
+app.use((req: Request, _res: Response, next) => {
+  // If Vercel rewrote the path, restore original path from Vercel headers if present
+  const vercelOriginal = (req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.headers['x-invoke-path']) as string | undefined;
+  if (vercelOriginal && vercelOriginal.startsWith('/api') && !vercelOriginal.includes('/api/index') && !vercelOriginal.includes('[...slug]')) {
+    req.url = vercelOriginal;
+  }
+
+  // If Vercel catch-all slug is present in req.query
+  if (req.query && req.query.slug) {
+    const slug = Array.isArray(req.query.slug) ? req.query.slug.join('/') : req.query.slug;
+    if (slug && (!req.url || req.url.includes('[...slug]') || req.url === '/api' || req.url.startsWith('/api/index'))) {
+      const search = req.url && req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+      req.url = `/api/${slug}${search}`;
+    }
+  }
+
+  // Strip internal Vercel index artifacts
+  if (req.url.startsWith('/api/index')) {
+    req.url = req.url.replace('/api/index', '/api');
+  }
+  if (req.url.startsWith('/api/[...slug]')) {
+    req.url = req.url.replace('/api/[...slug]', '/api');
+  }
+
+  // If request URL does not start with /api, prefix it so it matches all /api/* routes
+  if (!req.url.startsWith('/api')) {
+    req.url = `/api${req.url.startsWith('/') ? '' : '/'}${req.url}`;
+  }
+  next();
+});
+
 // In-Memory Persistent Store (Syncs with backend state)
 interface MockDatabaseState {
   hospitals: any[];
@@ -339,7 +372,7 @@ function recordAuditEvent(eventType: string, actorId: string, actorRole: string,
 // ==========================================
 // 1. HEALTH & SYSTEM TELEMETRY API
 // ==========================================
-app.get('/api/health', (_req: Request, res: Response) => {
+app.get(['/api/health', '/api', '/api/ping'], (_req: Request, res: Response) => {
   res.json({
     status: 'HEALTHY',
     service: 'CHIKITSA-X Enterprise Healthcare API Hub',
@@ -1100,5 +1133,22 @@ app.post('/api/audit/verify-chain', (_req: Request, res: Response) => {
     message: isChainValid
       ? 'Cryptographic audit ledger verified. 100% tamper-evident integrity confirmed.'
       : `Ledger compromised at block #${brokenIndex}!`
+  });
+});
+
+// 404 JSON Fallback (Returns structured JSON instead of default HTML)
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    error: `API Route ${req.method} ${req.originalUrl || req.url} not found on CHIKITSA-X server.`
+  });
+});
+
+// Global Error Handler returning structured JSON instead of HTML
+app.use((err: any, _req: Request, res: Response, _next: any) => {
+  console.error('API Error Handler Caught:', err);
+  res.status(err.status || 500).json({
+    success: false,
+    error: err.message || 'Internal Server Error'
   });
 });
