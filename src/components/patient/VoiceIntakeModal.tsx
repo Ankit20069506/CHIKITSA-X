@@ -16,8 +16,11 @@ import {
   Stethoscope,
   Send,
   Languages,
-  ArrowRight
+  ArrowRight,
+  Camera,
+  Upload
 } from 'lucide-react';
+import { MedicalRecordOCRScanner } from './MedicalRecordOCRScanner';
 
 interface Props {
   language: AppLanguage;
@@ -121,8 +124,25 @@ export const VoiceIntakeModal: React.FC<Props> = ({
   const [interimText, setInterimText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedRecord, setExtractedRecord] = useState<VoiceIntakeRecord | null>(null);
+  const [isOCRMode, setIsOCRMode] = useState(false);
   const [waveHeights, setWaveHeights] = useState<number[]>([15, 25, 40, 60, 30, 70, 45, 80, 50, 30, 20, 15]);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+
+  const matchedPreset = extractedRecord
+    ? (DEMO_PRESETS.find(p => p.chiefComplaint === extractedRecord.chiefComplaint) || DEMO_PRESETS[0])
+    : null;
+
+  const currentVoiceSymptom: BodySymptom | null = extractedRecord
+    ? {
+        partId: matchedPreset?.bodyPartId || 'chest',
+        partName: extractedRecord.bodyRegion,
+        hindiName: matchedPreset?.label.split('(')[0].trim() || extractedRecord.chiefComplaint,
+        symptoms: extractedRecord.extractedSymptoms,
+        severity: extractedRecord.painScaleVAS,
+        duration: extractedRecord.duration,
+        notes: extractedRecord.spokenTranscript
+      }
+    : null;
 
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
@@ -327,64 +347,125 @@ export const VoiceIntakeModal: React.FC<Props> = ({
         background: 'var(--bg-card)',
         borderRadius: 'var(--radius-lg)',
         border: '1px solid var(--border-subtle)',
-        maxWidth: '760px',
+        maxWidth: isOCRMode ? '940px' : '760px',
         width: '100%',
-        maxHeight: '90vh',
+        maxHeight: '92vh',
         overflowY: 'auto',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        transition: 'max-width 0.25s ease'
       }}>
-        {/* Header */}
-        <div style={{
-          padding: '20px 24px',
-          borderBottom: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {isOCRMode ? (
+          <div style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle)' }}>
+              <button
+                onClick={() => setIsOCRMode(false)}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+              >
+                ← {language === 'HI' ? 'वॉयस इनटेक पर वापस जाएं' : 'Back to Voice Intake'}
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="badge badge-teal" style={{ fontSize: '0.75rem' }}>
+                  {language === 'HI' ? '📄 मेडिकल ओसीआर स्कैनर' : '📄 Optical Medical Scribe'}
+                </span>
+                <button
+                  onClick={onClose}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '6px'
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <MedicalRecordOCRScanner
+              language={language}
+              voiceSymptom={currentVoiceSymptom}
+              onScanComplete={(scannedRecord, mergedSymptom) => {
+                if (onTransferToTriage) {
+                  onTransferToTriage(mergedSymptom);
+                }
+                onClose();
+              }}
+              onSkipToTriage={() => {
+                if (onTransferToTriage && currentVoiceSymptom) {
+                  onTransferToTriage(currentVoiceSymptom);
+                }
+                onClose();
+              }}
+              onClose={onClose}
+            />
+          </div>
+        ) : (
+          <>
+            {/* Header */}
             <div style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #9333ea 0%, #0284c7 100%)',
+              padding: '20px 24px',
+              borderBottom: '1px solid var(--border-subtle)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              boxShadow: '0 4px 12px rgba(147, 51, 234, 0.3)'
+              justifyContent: 'space-between',
+              background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%)'
             }}>
-              <Mic size={22} />
-            </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 700 }}>
-                  {language === 'HI' ? 'एआई आवाज लक्षण पंजीकरण (Voice Intake)' : 'AI Multilingual Voice Intake & Clinical Scribe'}
-                </h3>
-                <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>Bhashini AI</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #9333ea 0%, #0284c7 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  boxShadow: '0 4px 12px rgba(147, 51, 234, 0.3)'
+                }}>
+                  <Mic size={22} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 700 }}>
+                      {language === 'HI' ? 'एआई आवाज लक्षण पंजीकरण (Voice Intake)' : 'AI Multilingual Voice Intake & Clinical Scribe'}
+                    </h3>
+                    <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>Bhashini AI</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {language === 'HI'
+                      ? 'अपनी भाषा में खुलकर बोलें — एआई तुरंत मेडिकल शब्दों व लक्षणों को एक्सट्रैक्ट करेगा'
+                      : 'Speak naturally in Hindi, Hinglish, or English — auto-extracted into structured clinical data'}
+                  </p>
+                </div>
               </div>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                {language === 'HI'
-                  ? 'अपनी भाषा में खुलकर बोलें — एआई तुरंत मेडिकल शब्दों व लक्षणों को एक्सट्रैक्ट करेगा'
-                  : 'Speak naturally in Hindi, Hinglish, or English — auto-extracted into structured clinical data'}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => setIsOCRMode(true)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem' }}
+                  title="Scan medical reports with OCR"
+                >
+                  <Camera size={13} />
+                  <span>{language === 'HI' ? 'रिपोर्ट स्कैन करें' : 'Scan Reports'}</span>
+                </button>
+                <button
+                  onClick={onClose}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '6px'
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              padding: '6px'
-            }}
-          >
-            <X size={20} />
-          </button>
-        </div>
 
         {/* Content Body */}
         <div style={{ padding: '24px' }}>
@@ -701,6 +782,119 @@ export const VoiceIntakeModal: React.FC<Props> = ({
                 </div>
               </div>
 
+              {/* CONDITIONAL GATE: PREVIOUS MEDICAL / LAB RECORD CHECK */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)',
+                border: '2px solid #0284c7',
+                borderRadius: 'var(--radius-md)',
+                padding: '18px 20px',
+                marginBottom: '20px',
+                boxShadow: '0 4px 16px rgba(2, 132, 199, 0.12)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '14px' }}>
+                  <div style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #0284c7 0%, #0d9488 100%)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 10px rgba(2, 132, 199, 0.3)'
+                  }}>
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span className="badge badge-teal" style={{ fontSize: '0.72rem' }}>
+                        {language === 'HI' ? 'कंडीशनल चिकित्सीय सत्यापन' : 'Conditional Clinical Gate'}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: '#0284c7', fontWeight: 700 }}>
+                        {language === 'HI' ? 'ओसीआर स्कैनर विकल्प' : 'Medical OCR Scanner'}
+                      </span>
+                    </div>
+                    <h4 style={{ margin: '4px 0 2px', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                      {language === 'HI'
+                        ? 'क्या आपके पास इस बीमारी से संबंधित कोई पिछला मेडिकल पर्चा या लैब रिपोर्ट है?'
+                        : 'Do you have previous medical records, prescriptions, or lab reports for this condition?'}
+                    </h4>
+                    <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                      {language === 'HI'
+                        ? 'यदि हाँ, तो ओसीआर स्कैनर द्वारा रिपोर्ट स्कैन करें ताकि ईसीजी, ट्रोपोनिन या ब्लड टेस्ट डेटा एआई में जुड़ सके। यदि नहीं, तो सीधे एआई समरी व ट्रायज रिपोर्ट देखें।'
+                        : 'If YES, scan previous records with our OCR scanner to extract ECG, biomarkers & prescriptions. If NO, proceed directly to AI Summarize Report.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px' }}>
+                  {/* Option 1: NO -> Directly to AI Summarize Report */}
+                  <button
+                    onClick={() => {
+                      if (onTransferToTriage && currentVoiceSymptom) {
+                        onTransferToTriage(currentVoiceSymptom);
+                      }
+                      onClose();
+                    }}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '14px 18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      fontWeight: 700,
+                      fontSize: '0.88rem',
+                      border: '1.5px solid var(--border-subtle)',
+                      background: 'var(--bg-primary)',
+                      cursor: 'pointer',
+                      borderRadius: 'var(--radius-sm)'
+                    }}
+                  >
+                    <X size={18} color="var(--critical-red)" />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>
+                        {language === 'HI' ? '❌ नहीं (NO)' : '❌ NO, Continue Without Records'}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                        {language === 'HI' ? 'सीधे AI समरी व ट्रायज रिपोर्ट देखें' : 'View AI Triage Report Directly'}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Option 2: YES -> Open OCR Scanner */}
+                  <button
+                    onClick={() => setIsOCRMode(true)}
+                    className="btn btn-primary"
+                    style={{
+                      padding: '14px 18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      fontWeight: 800,
+                      fontSize: '0.88rem',
+                      background: 'linear-gradient(135deg, #0284c7 0%, #0d9488 100%)',
+                      color: '#fff',
+                      boxShadow: '0 4px 16px rgba(2, 132, 199, 0.35)',
+                      cursor: 'pointer',
+                      borderRadius: 'var(--radius-sm)'
+                    }}
+                  >
+                    <Camera size={18} />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: 800 }}>
+                        {language === 'HI' ? '📄 हाँ (YES)' : '📄 YES, Scan Report with OCR'}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', opacity: 0.9 }}>
+                        {language === 'HI' ? 'मेडिकल / लैब रिपोर्ट स्कैन करें' : 'Scan Lab / Medical Document'}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Action Buttons for Clinical Follow-ups */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <button
@@ -726,16 +920,9 @@ export const VoiceIntakeModal: React.FC<Props> = ({
                   {onTransferToTriage && (
                     <button
                       onClick={() => {
-                        const matchedPreset = DEMO_PRESETS.find(p => p.chiefComplaint === extractedRecord.chiefComplaint) || DEMO_PRESETS[0];
-                        onTransferToTriage({
-                          partId: matchedPreset.bodyPartId,
-                          partName: extractedRecord.bodyRegion,
-                          hindiName: matchedPreset.label.split('(')[0].trim(),
-                          symptoms: extractedRecord.extractedSymptoms,
-                          severity: extractedRecord.painScaleVAS,
-                          duration: extractedRecord.duration,
-                          notes: extractedRecord.spokenTranscript
-                        });
+                        if (currentVoiceSymptom) {
+                          onTransferToTriage(currentVoiceSymptom);
+                        }
                         onClose();
                       }}
                       className="btn btn-primary btn-sm"
@@ -760,6 +947,8 @@ export const VoiceIntakeModal: React.FC<Props> = ({
             </div>
           )}
         </div>
+      </>
+    )}
       </div>
     </div>
   );

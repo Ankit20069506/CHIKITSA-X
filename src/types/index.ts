@@ -38,6 +38,35 @@ export interface FHIRRecord {
   rawJsonUrl?: string;
 }
 
+export interface OCROpticalBiomarker {
+  testName: string;
+  hindiName?: string;
+  value: string;
+  unit: string;
+  range: string;
+  isAbnormal: boolean;
+  severity?: 'NORMAL' | 'ELEVATED' | 'CRITICAL';
+}
+
+export interface OCRScannedRecord {
+  id: string;
+  documentType: 'LAB_REPORT' | 'PRESCRIPTION' | 'DISCHARGE_SUMMARY' | 'RADIOLOGY';
+  documentTitle: string;
+  fileName: string;
+  fileSizeKb: number;
+  facilityName: string;
+  doctorName?: string;
+  date: string;
+  previousDiagnosis?: string;
+  previousDiagnosisHindi?: string;
+  extractedBiomarkers?: OCROpticalBiomarker[];
+  pastMedications?: string[];
+  allergies?: string[];
+  keyFindings: string[];
+  rawText: string;
+  confidenceScore: number;
+}
+
 export interface BodySymptom {
   partId: 'head' | 'neck' | 'chest' | 'abdomen' | 'spine' | 'arms' | 'legs' | 'general';
   partName: string;
@@ -46,6 +75,7 @@ export interface BodySymptom {
   severity: number; // 1 - 10
   duration: string;
   notes?: string;
+  scannedRecord?: OCRScannedRecord;
 }
 
 export interface TriageDifferential {

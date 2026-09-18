@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { AppLanguage, TriageDifferential, BodySymptom, Hospital } from '../../types';
+import type { AppLanguage, TriageDifferential, BodySymptom, Hospital, OCRScannedRecord } from '../../types';
 import { db } from '../../db/database';
 import {
   Bot,
@@ -19,9 +19,12 @@ import {
   LocateFixed,
   Award,
   Building2,
-  Zap
+  Zap,
+  Camera,
+  X
 } from 'lucide-react';
 import { VoiceIntakeModal } from './VoiceIntakeModal';
+import { MedicalRecordOCRScanner } from './MedicalRecordOCRScanner';
 import {
   getStoredPatientLocation,
   calculateHaversineDistanceKm,
@@ -62,6 +65,8 @@ export const ChikitsaAICopilot: React.FC<Props> = ({
   onBookHospitalOPD
 }) => {
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
+  const [scannedRecord, setScannedRecord] = useState<OCRScannedRecord | null>(() => activeSymptom?.scannedRecord || null);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [bookedConfirmation, setBookedConfirmation] = useState<string | null>(null);
 
@@ -459,35 +464,91 @@ export const ChikitsaAICopilot: React.FC<Props> = ({
     };
   };
 
-  // Active Clinical Triage Summary
-  const [triageSummary, setTriageSummary] = useState<ClinicalTriageSummary | null>(() => runClinicalTriageEngine(transcript, activeSymptom?.severity || 7));
+  // Merge OCR Biometric Lab Findings into Triage Summary
+  const enhanceSummaryWithOCR = (summary: ClinicalTriageSummary, record?: OCRScannedRecord | null): ClinicalTriageSummary => {
+    const activeRec = record !== undefined ? record : scannedRecord;
+    if (!activeRec) return summary;
 
-  const synthesizeTriage = (textToAnalyze: string, severityScale: number = 7) => {
+    const biomarkers = activeRec.extractedBiomarkers || [];
+    const hasCriticalBiomarker = biomarkers.some(
+      b => b.severity === 'CRITICAL' || (b.isAbnormal && (b.testName.toLowerCase().includes('troponin') || b.testName.toLowerCase().includes('platelet') || b.testName.toLowerCase().includes('creatinine')))
+    );
+
+    const hasAbnormalBiomarker = biomarkers.some(b => b.isAbnormal);
+
+    const updatedEsi = hasCriticalBiomarker
+      ? 'ESI-1 (Immediate Resuscitation)'
+      : (hasAbnormalBiomarker && summary.esiLevel.startsWith('ESI-3'))
+      ? 'ESI-2 (Emergent)'
+      : summary.esiLevel;
+
+    const updatedUrgencyColor = hasCriticalBiomarker
+      ? '#ef4444'
+      : (hasAbnormalBiomarker && summary.esiLevel.startsWith('ESI-3'))
+      ? '#f59e0b'
+      : summary.urgencyColor;
+
+    const abnormalList = biomarkers
+      .filter(b => b.isAbnormal)
+      .map(b => `${b.testName}: ${b.value} ${b.unit} [${b.severity}]`)
+      .join(', ');
+
+    const ocrImpression = `\n\n📄 [Integrated Lab/OCR Record - ${activeRec.facilityName}]: Prior Diagnosis: ${activeRec.previousDiagnosis}. Biomarkers: ${abnormalList || 'Normal parameters'}.`;
+    const ocrImpressionHi = `\n\n📄 [सत्यापित मेडिकल ओसीआर रिकॉर्ड - ${activeRec.facilityName}]: पूर्व निदान: ${activeRec.previousDiagnosisHindi || activeRec.previousDiagnosis}। बायोमार्कर एकीकृत।`;
+
+    const critList = biomarkers
+      .filter(b => b.severity === 'CRITICAL')
+      .map(b => `Lab Biomarker Critical: ${b.testName} (${b.value} ${b.unit})`);
+
+    return {
+      ...summary,
+      esiLevel: updatedEsi,
+      urgencyColor: updatedUrgencyColor,
+      clinicalImpression: summary.clinicalImpression + ocrImpression,
+      clinicalImpressionHindi: summary.clinicalImpressionHindi + ocrImpressionHi,
+      redFlags: critList.length > 0 ? [...critList, ...summary.redFlags] : summary.redFlags
+    };
+  };
+
+  // Active Clinical Triage Summary
+  const [triageSummary, setTriageSummary] = useState<ClinicalTriageSummary | null>(() => {
+    const base = runClinicalTriageEngine(transcript, activeSymptom?.severity || 7);
+    return enhanceSummaryWithOCR(base, activeSymptom?.scannedRecord);
+  });
+
+  const synthesizeTriage = (textToAnalyze: string, severityScale: number = 7, record?: OCRScannedRecord | null) => {
     setIsSynthesizing(true);
     setTimeout(() => {
-      const summary = runClinicalTriageEngine(textToAnalyze, severityScale);
-      setTriageSummary(summary);
+      const baseSummary = runClinicalTriageEngine(textToAnalyze, severityScale);
+      const enrichedSummary = enhanceSummaryWithOCR(baseSummary, record);
+      setTriageSummary(enrichedSummary);
       setIsSynthesizing(false);
     }, 450);
   };
 
-  // Synchronize when activeSymptom changes from BodyMapSelector
+  // Synchronize when activeSymptom changes from BodyMapSelector or OCR
   useEffect(() => {
     if (activeSymptom) {
+      if (activeSymptom.scannedRecord) {
+        setScannedRecord(activeSymptom.scannedRecord);
+      }
       const generatedText =
         activeSymptom.notes ||
         `Patient reports severe ${activeSymptom.symptoms.join(', ')} in ${activeSymptom.partName} (${activeSymptom.hindiName}) with pain VAS severity ${activeSymptom.severity}/10 for ${activeSymptom.duration}.`;
       setTranscript(generatedText);
-      synthesizeTriage(generatedText, activeSymptom.severity);
+      synthesizeTriage(generatedText, activeSymptom.severity, activeSymptom.scannedRecord);
     }
   }, [activeSymptom]);
 
   const handleVoiceIntakeComplete = (symptom: BodySymptom) => {
+    if (symptom.scannedRecord) {
+      setScannedRecord(symptom.scannedRecord);
+    }
     const text =
       symptom.notes ||
       `Patient reports ${symptom.symptoms.join(', ')} in ${symptom.partName} (${symptom.hindiName}) with severity ${symptom.severity}/10 for ${symptom.duration}.`;
     setTranscript(text);
-    synthesizeTriage(text, symptom.severity);
+    synthesizeTriage(text, symptom.severity, symptom.scannedRecord);
   };
 
   // Find Nearest Hospital matching diagnosed primary specialty
@@ -665,18 +726,28 @@ export const ChikitsaAICopilot: React.FC<Props> = ({
 
       {/* Clinical Input Box */}
       <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: '16px', border: '1px solid var(--border-subtle)', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
           <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
             {language === 'HI' ? 'रोगी के लक्षण विवरण (Patient Presentation & Transcript)' : 'Clinical Presentation & Speech Intake'}
           </label>
-          <button
-            onClick={() => setIsVoiceModalOpen(true)}
-            className="btn btn-purple btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Mic size={15} />
-            {language === 'HI' ? 'आवाज से लक्षण बोलें (Voice Intake)' : 'Speak Symptoms (Voice Intake)'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setIsOCRModalOpen(true)}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Camera size={14} />
+              {language === 'HI' ? '📄 रिपोर्ट स्कैन करें (OCR)' : '📄 Scan Lab Report (OCR)'}
+            </button>
+            <button
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="btn btn-purple btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Mic size={14} />
+              {language === 'HI' ? 'आवाज से लक्षण बोलें (Voice Intake)' : 'Speak Symptoms (Voice Intake)'}
+            </button>
+          </div>
         </div>
 
         <textarea
@@ -744,6 +815,119 @@ export const ChikitsaAICopilot: React.FC<Props> = ({
         }}>
           <CheckCircle2 size={20} />
           <span>{bookedConfirmation}</span>
+        </div>
+      )}
+
+      {/* 📄 Multimodal Clinical Fusion Card (Voice Intake + Scanned OCR Record) */}
+      {scannedRecord && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)',
+          border: '2px solid #0284c7',
+          borderRadius: 'var(--radius-md)',
+          padding: '18px 20px',
+          marginBottom: '22px',
+          boxShadow: '0 4px 18px rgba(2, 132, 199, 0.12)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.4rem' }}>🎙️ + 📄</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: '1rem', color: 'var(--text-main)' }}>
+                    {language === 'HI'
+                      ? 'मल्टीमोडल क्लिनिकल डेटा फ्यूजन (वॉयस इनटेक + ओसीआर रिपोर्ट)'
+                      : 'Multimodal Clinical Fusion: Voice Symptom Intake + OCR Lab Report'}
+                  </strong>
+                  <span className="badge badge-teal" style={{ fontSize: '0.7rem' }}>OCR VERIFIED</span>
+                  <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>{scannedRecord.confidenceScore}% CONFIDENCE</span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  🏛️ {scannedRecord.facilityName} {scannedRecord.doctorName ? `• 👨‍⚕️ ${scannedRecord.doctorName}` : ''} • 📅 {scannedRecord.date}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                onClick={() => setIsOCRModalOpen(true)}
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                <RefreshCw size={12} /> {language === 'HI' ? 'अन्य रिपोर्ट स्कैन करें' : 'Rescan / Upload'}
+              </button>
+              <button
+                onClick={() => {
+                  setScannedRecord(null);
+                  synthesizeTriage(transcript, activeSymptom?.severity || 7, null);
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}
+                title="Detach scanned record"
+              >
+                <X size={12} /> {language === 'HI' ? 'हटाएं' : 'Clear OCR'}
+              </button>
+            </div>
+          </div>
+
+          {/* Extracted Biomarkers Grid */}
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Activity size={13} color="#0284c7" />
+              {language === 'HI' ? 'ओसीआर द्वारा पहचाने गए बायोमार्कर व लैब मान (Extracted Biomarkers):' : 'Optical Lab Biomarkers & Diagnostic Telemetry:'}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {(scannedRecord.extractedBiomarkers || []).map((b, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    padding: '7px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    background: b.severity === 'CRITICAL'
+                      ? 'rgba(239, 68, 68, 0.12)'
+                      : b.severity === 'ELEVATED'
+                      ? 'rgba(245, 158, 11, 0.12)'
+                      : 'var(--bg-secondary)',
+                    border: `1px solid ${
+                      b.severity === 'CRITICAL' ? '#ef4444' : b.severity === 'ELEVATED' ? '#f59e0b' : 'var(--border-subtle)'
+                    }`,
+                    color: b.severity === 'CRITICAL' ? '#dc2626' : b.severity === 'ELEVATED' ? '#d97706' : 'var(--text-main)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {b.severity === 'CRITICAL' ? '🚨' : b.severity === 'ELEVATED' ? '⚠️' : '✅'}
+                  <span>{language === 'HI' && b.hindiName ? b.hindiName : b.testName}:</span>
+                  <strong>{b.value} {b.unit}</strong>
+                  <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>({b.range})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Prior Diagnosis and Medication Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px', fontSize: '0.82rem' }}>
+            {scannedRecord.previousDiagnosis && (
+              <div style={{ background: 'var(--bg-primary)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {language === 'HI' ? 'पिछला मेडिकल निदान:' : 'Previous Documented Diagnosis:'}{' '}
+                </span>
+                <strong style={{ color: 'var(--text-main)' }}>
+                  {language === 'HI' && scannedRecord.previousDiagnosisHindi ? scannedRecord.previousDiagnosisHindi : scannedRecord.previousDiagnosis}
+                </strong>
+              </div>
+            )}
+            {scannedRecord.pastMedications && scannedRecord.pastMedications.length > 0 && (
+              <div style={{ background: 'var(--bg-primary)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {language === 'HI' ? 'पूर्व दवाएं (Past Rx):' : 'Previous Prescriptions:'}{' '}
+                </span>
+                <strong style={{ color: 'var(--text-main)' }}>{scannedRecord.pastMedications.join(', ')}</strong>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1035,6 +1219,59 @@ export const ChikitsaAICopilot: React.FC<Props> = ({
           onBookOPD={onNavigateHospitals}
           onOpenEmergency={onEmergencyTrigger}
         />
+      )}
+
+      {isOCRModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--border-subtle)',
+            maxWidth: '940px',
+            width: '100%',
+            maxHeight: '92vh',
+            overflowY: 'auto',
+            padding: '24px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.2rem' }}>📄</span>
+                <h3 style={{ fontSize: '1.15rem', margin: 0, fontWeight: 700 }}>
+                  {language === 'HI' ? 'मेडिकल व लैब रिपोर्ट ओसीआर स्कैनर' : 'Medical & Lab Report Optical OCR Scanner'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsOCRModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <MedicalRecordOCRScanner
+              language={language}
+              voiceSymptom={activeSymptom}
+              onScanComplete={(rec, merged) => {
+                setScannedRecord(rec);
+                setIsOCRModalOpen(false);
+                synthesizeTriage(merged.notes || transcript, merged.severity, rec);
+              }}
+              onSkipToTriage={() => setIsOCRModalOpen(false)}
+              onClose={() => setIsOCRModalOpen(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

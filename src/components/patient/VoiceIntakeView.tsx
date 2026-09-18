@@ -12,9 +12,12 @@ import {
   ChevronRight,
   History,
   Languages,
-  Plus
+  Plus,
+  Camera,
+  X
 } from 'lucide-react';
 import { VoiceIntakeModal } from './VoiceIntakeModal';
+import { MedicalRecordOCRScanner } from './MedicalRecordOCRScanner';
 
 interface Props {
   language: AppLanguage;
@@ -30,6 +33,7 @@ export const VoiceIntakeView: React.FC<Props> = ({
   onOpenEmergency
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
   const [history, setHistory] = useState<VoiceIntakeRecord[]>(() => db.getVoiceIntakeHistory());
   const [selectedRecord, setSelectedRecord] = useState<VoiceIntakeRecord | null>(history[0] || null);
 
@@ -270,6 +274,15 @@ export const VoiceIntakeView: React.FC<Props> = ({
                 </button>
               )}
 
+              <button
+                onClick={() => setIsOCRModalOpen(true)}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Camera size={14} />
+                {language === 'HI' ? '📄 मेडिकल / लैब रिपोर्ट स्कैन करें' : '📄 Scan Medical Report (OCR)'}
+              </button>
+
               {onTransferToTriage && (
                 <button
                   onClick={() => {
@@ -310,6 +323,81 @@ export const VoiceIntakeView: React.FC<Props> = ({
           onBookOPD={onBookOPD}
           onOpenEmergency={onOpenEmergency}
         />
+      )}
+
+      {isOCRModalOpen && selectedRecord && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--border-subtle)',
+            maxWidth: '940px',
+            width: '100%',
+            maxHeight: '92vh',
+            overflowY: 'auto',
+            padding: '24px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.2rem' }}>📄</span>
+                <h3 style={{ fontSize: '1.15rem', margin: 0, fontWeight: 700 }}>
+                  {language === 'HI' ? 'मेडिकल व लैब रिपोर्ट ओसीआर स्कैनर' : 'Medical & Lab Report Optical OCR Scanner'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsOCRModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <MedicalRecordOCRScanner
+              language={language}
+              voiceSymptom={{
+                partId: 'chest',
+                partName: selectedRecord.bodyRegion,
+                hindiName: selectedRecord.chiefComplaint,
+                symptoms: selectedRecord.extractedSymptoms,
+                severity: selectedRecord.painScaleVAS,
+                duration: selectedRecord.duration,
+                notes: selectedRecord.spokenTranscript
+              }}
+              onScanComplete={(rec, merged) => {
+                setIsOCRModalOpen(false);
+                if (onTransferToTriage) {
+                  onTransferToTriage(merged);
+                }
+              }}
+              onSkipToTriage={() => {
+                setIsOCRModalOpen(false);
+                if (onTransferToTriage) {
+                  onTransferToTriage({
+                    partId: 'chest',
+                    partName: selectedRecord.bodyRegion,
+                    hindiName: selectedRecord.chiefComplaint,
+                    symptoms: selectedRecord.extractedSymptoms,
+                    severity: selectedRecord.painScaleVAS,
+                    duration: selectedRecord.duration,
+                    notes: selectedRecord.spokenTranscript
+                  });
+                }
+              }}
+              onClose={() => setIsOCRModalOpen(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

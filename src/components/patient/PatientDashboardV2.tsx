@@ -17,6 +17,7 @@ import { HospitalPassQRModal } from './HospitalPassQRModal';
 import { EmergencyRadarModal } from '../common/EmergencyRadarModal';
 import { VoiceIntakeView } from './VoiceIntakeView';
 import { VoiceIntakeModal } from './VoiceIntakeModal';
+import { MedicalRecordOCRScanner } from './MedicalRecordOCRScanner';
 import { CareFinanceHub } from '../finance/CareFinanceHub';
 import { Mic, Sparkles, ArrowRight, User as UserIcon, LogOut, KeyRound, MapPin, LocateFixed, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import {
@@ -224,6 +225,7 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
         {[
           { id: 'OVERVIEW', label: language === 'HI' ? 'डैशबोर्ड ओवरव्यू' : 'Care Overview' },
           { id: 'AI_VOICE', label: language === 'HI' ? '🎙️ वॉयस इनटेक' : '🎙️ AI Voice Intake & Scribe' },
+          { id: 'OCR_SCANNER', label: language === 'HI' ? '📄 मेडिकल ओसीआर' : '📄 Medical & Lab OCR' },
           { id: 'AI_INTAKE', label: language === 'HI' ? 'लक्षण एवं एआई निदान' : 'Interactive Body Map & AI Triage' },
           { id: 'QUEUE', label: language === 'HI' ? 'लाइव ओपीडी टोकन' : 'Live OPD Queue & Pass' },
           { id: 'ABHA', label: language === 'HI' ? 'आभा 2.0 हेल्थ वॉलेट' : 'ABHA 2.0 & FHIR Records' },
@@ -470,6 +472,20 @@ export const PatientDashboardV2: React.FC<Props> = ({ language, activeSubTab, se
             onEmergencyTrigger={() => setIsEmergencyOpen(true)}
           />
         </>
+      )}
+
+      {activeSubTab === 'OCR_SCANNER' && (
+        <MedicalRecordOCRScanner
+          language={language}
+          voiceSymptom={activeSymptom}
+          onScanComplete={(scannedRecord, mergedSymptom) => {
+            setActiveSymptom(mergedSymptom);
+            setActiveSubTab('AI_INTAKE');
+          }}
+          onSkipToTriage={() => {
+            setActiveSubTab('AI_INTAKE');
+          }}
+        />
       )}
 
       {activeSubTab === 'AI_VOICE' && (
