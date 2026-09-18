@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { type Express, type Request, type Response } from 'express';
 import cors from 'cors';
 import {
@@ -810,17 +811,29 @@ app.get('/api/opd/queue', (_req: Request, res: Response) => {
 // 6. ABHA HEALTH VAULT & AES-256 PHI VAULT
 // ==========================================
 app.get('/api/abha/profile', (req: Request, res: Response) => {
-  const rawProfile = {
-    abhaNumber: '14-2026-9812-4401',
-    abhaAddress: 'ankit.patel@abdm',
-    fullName: 'Ankit Patel',
-    dob: '1995-08-14',
-    gender: 'MALE',
-    bloodGroup: 'O+',
-    mobile: '+91 98201 54821',
-    address: 'Baner, Pune, Maharashtra - 411045',
+  const latestPatient = dbState.users.find(u => u.role === 'PATIENT' && u.name !== 'Guest Citizen');
+  const rawProfile = latestPatient ? {
+    abhaNumber: latestPatient.abhaNumber || '14-2026-9812-4401',
+    abhaAddress: latestPatient.abhaAddress || 'patient@abdm',
+    fullName: latestPatient.name,
+    dob: latestPatient.dob || '1996-05-15',
+    gender: latestPatient.gender || 'MALE',
+    bloodGroup: latestPatient.bloodGroup || 'B+',
+    mobile: latestPatient.phone || '+91 98000 00000',
+    address: `${latestPatient.city || 'Pune'}, ${latestPatient.state || 'Maharashtra'} - India`,
     kycVerified: true,
-    linkedFacilitiesCount: 4
+    linkedFacilitiesCount: 1
+  } : {
+    abhaNumber: '14-XXXX-XXXX-XXXX',
+    abhaAddress: 'guest@abdm',
+    fullName: 'Guest Citizen',
+    dob: '1998-01-01',
+    gender: 'MALE',
+    bloodGroup: 'B+',
+    mobile: '+91 98000 00000',
+    address: 'Empanelled Network, India',
+    kycVerified: false,
+    linkedFacilitiesCount: 0
   };
 
   // If client requests encrypted payload (zero-trust mode)
@@ -882,7 +895,7 @@ app.get('/api/abha/fhir-records', (req: Request, res: Response) => {
 // 7. CORPORATE CSR (SEC 135) & GRANTS API
 // ==========================================
 app.post('/api/csr/apply', (req: Request, res: Response) => {
-  const { corporationName, patientName = 'Ankit Patel', procedureName, requestedAmount = 185000 } = req.body;
+  const { corporationName, patientName = 'Verified Beneficiary', procedureName, requestedAmount = 185000 } = req.body;
 
   const applicationId = `CSR-2026-${Date.now().toString().slice(-5)}`;
   const applicationRecord = {

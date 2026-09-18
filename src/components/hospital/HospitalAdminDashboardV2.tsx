@@ -28,7 +28,9 @@ export const HospitalAdminDashboardV2: React.FC<Props> = ({ language }) => {
 
   const handleVerifyPass = () => {
     confetti({ particleCount: 70, spread: 60 });
-    setVerificationResult('SUCCESS: Reference ID CHX-2026-8A92F verified. Patient Ankit Patel checked-in for Cardiology OPD #04.');
+    const currentPatient = db.getCurrentUser();
+    const patientName = !currentPatient.isGuest && currentPatient.name !== 'Guest Citizen' ? currentPatient.name : 'Verified Citizen';
+    setVerificationResult(`SUCCESS: Reference ID CHX-2026-8A92F verified. Patient ${patientName} checked-in for Cardiology OPD #04.`);
   };
 
   return (

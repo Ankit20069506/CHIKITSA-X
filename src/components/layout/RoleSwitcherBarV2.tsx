@@ -49,7 +49,7 @@ export const RoleSwitcherBarV2: React.FC<Props> = ({ currentRole, onRoleChange }
               color: '#ffffff'
             }}
           >
-            <UserCheck size={13} /> Patient (Ankit Patel)
+            <UserCheck size={13} /> Patient (Citizen / ABDM)
           </button>
 
           <button

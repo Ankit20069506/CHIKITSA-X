@@ -165,33 +165,49 @@ export const ABHAWalletCard: React.FC<Props> = ({ profile, fhirRecords, language
           {language === 'HI' ? 'लिंक्ड डिजिटल हेल्थ रिकॉर्ड्स (FHIR R4 Resources)' : 'Linked Electronic Health Records (EHR / ABDM)'}
         </h4>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-          {fhirRecords.map(rec => (
-            <div
-              key={rec.id}
-              style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '14px'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span className="badge badge-blue" style={{ fontSize: '0.68rem' }}>{rec.resourceType}</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{rec.date}</span>
+        {fhirRecords.length === 0 ? (
+          <div style={{
+            padding: '24px',
+            textAlign: 'center',
+            background: 'var(--bg-secondary)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px dashed var(--border-subtle)',
+            color: 'var(--text-muted)',
+            fontSize: '0.85rem'
+          }}>
+            📋 {language === 'HI'
+              ? 'वर्तमान में कोई लिंक्ड ईएचआर (EHR) रिकॉर्ड उपलब्ध नहीं है। अस्पताल परामर्श अथवा डिस्चार्ज उपरांत नए नैदानिक रिकॉर्ड यहाँ प्रदर्शित होंगे।'
+              : 'No clinical health records linked yet. Verified hospital discharge summaries and lab reports will appear here.'}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+            {fhirRecords.map(rec => (
+              <div
+                key={rec.id}
+                style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span className="badge badge-blue" style={{ fontSize: '0.68rem' }}>{rec.resourceType}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{rec.date}</span>
+                </div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px', color: 'var(--text-main)' }}>
+                  {rec.title}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  {rec.facility} • {rec.doctor}
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  {rec.summary}
+                </p>
               </div>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px', color: 'var(--text-main)' }}>
-                {rec.title}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                {rec.facility} • {rec.doctor}
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-                {rec.summary}
-              </p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

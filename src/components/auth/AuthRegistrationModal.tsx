@@ -1046,6 +1046,36 @@ export const AuthRegistrationModal: React.FC<Props> = ({
                     </span>
                   </div>
                 )}
+
+                {/* Direct Delivery Notice */}
+                {deliveryInfo.emailStatus?.includes('SENT_TO_') ? (
+                  <div style={{
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    color: '#10b981',
+                    fontSize: '0.78rem',
+                    textAlign: 'left'
+                  }}>
+                    ✅ {language === 'HI' ? 'ओटीपी आपके ईमेल इनबॉक्स में भेज दिया गया है।' : 'Real OTP dispatched to your email inbox! Please check inbox/spam.'}
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    color: '#d97706',
+                    fontSize: '0.78rem',
+                    textAlign: 'left',
+                    lineHeight: '1.4'
+                  }}>
+                    ℹ️ {language === 'HI'
+                      ? 'यदि जीमेल इनबॉक्स में सीधा ईमेल चाहिए, तो .env में GMAIL_USER व GMAIL_APP_PASSWORD जोड़ें। अभी परीक्षण हेतु लाइव ओटीपी ऊपर दिया गया है (Auto-Fill बटन दबाएं)।'
+                      : 'Live in-app OTP shown above. For direct Gmail inbox delivery, configure GMAIL_USER & GMAIL_APP_PASSWORD in your .env or Vercel settings.'}
+                  </div>
+                )}
               </div>
 
               {/* OTP Input */}

@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
 import type { AppLanguage } from '../../types';
 import { Video, VideoOff, Mic, MicOff, PhoneOff, Heart, FileText } from 'lucide-react';
+import { db } from '../../db/database';
 
 interface Props {
-  language: AppLanguage;
+  language?: AppLanguage;
   onClose: () => void;
   onOpenScribe: () => void;
 }
 
-export const TelehealthConsultation: React.FC<Props> = ({ language, onClose, onOpenScribe }) => {
+export const TelehealthConsultation: React.FC<Props> = ({ language = 'EN', onClose, onOpenScribe }) => {
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
+  const currentPatient = db.getCurrentUser();
+  const profile = db.getABHAProfile();
+  const patientDisplayName = !currentPatient.isGuest && currentPatient.name !== 'Guest Citizen' ? currentPatient.name : 'Verified Citizen';
+  const abhaDisplay = profile.abhaNumber || '14-2026-ABDM-KYC';
 
   return (
     <div className="modal-overlay">
@@ -20,7 +25,7 @@ export const TelehealthConsultation: React.FC<Props> = ({ language, onClose, onO
             <span className="live-dot" style={{ backgroundColor: '#10b981' }} />
             <div>
               <strong style={{ fontSize: '1rem' }}>Tele-OPD Room #401 (Encrypted WebRTC)</strong>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Patient: Ankit Patel (ABHA: 14-2026-9812-4401)</div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Patient: {patientDisplayName} (ABHA: {abhaDisplay})</div>
             </div>
           </div>
 
@@ -39,7 +44,7 @@ export const TelehealthConsultation: React.FC<Props> = ({ language, onClose, onO
             <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: 'linear-gradient(135deg, #0284c7, #0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem' }}>
               👤
             </div>
-            <div style={{ marginTop: '12px', fontWeight: 600, fontSize: '0.95rem' }}>Ankit Patel (Patient)</div>
+            <div style={{ marginTop: '12px', fontWeight: 600, fontSize: '0.95rem' }}>{patientDisplayName} (Patient)</div>
             <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Live Audio/Video Stream Active</div>
 
             <div style={{

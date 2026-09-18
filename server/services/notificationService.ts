@@ -27,23 +27,31 @@ class NotificationService {
   private initMailer() {
     const host = process.env.SMTP_HOST;
     const port = Number(process.env.SMTP_PORT) || 587;
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
+    const user = process.env.SMTP_USER || process.env.GMAIL_USER;
+    const pass = process.env.SMTP_PASS || process.env.GMAIL_PASS || process.env.GMAIL_APP_PASSWORD;
 
-    if (host && user && pass) {
+    if (user && pass) {
       try {
-        this.transporter = nodemailer.createTransport({
-          host,
-          port,
-          secure: port === 465,
-          auth: { user, pass }
-        });
-        console.log(`📧 SMTP Transporter initialized successfully (${host}:${port})`);
+        if (!host || host.toLowerCase().includes('gmail')) {
+          this.transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user, pass }
+          });
+          console.log(`📧 Gmail Transporter initialized successfully for ${user}`);
+        } else {
+          this.transporter = nodemailer.createTransport({
+            host,
+            port,
+            secure: port === 465,
+            auth: { user, pass }
+          });
+          console.log(`📧 SMTP Transporter initialized successfully (${host}:${port})`);
+        }
       } catch (err) {
         console.warn('⚠️ SMTP Transporter init failed, falling back to in-app verification:', err);
       }
     } else {
-      console.log('ℹ️ No external SMTP credentials detected. Real OTPs will be displayed via secure in-app channel & server telemetry.');
+      console.log('ℹ️ No SMTP credentials configured. Real OTP will be available via in-app auto-fill & server telemetry.');
     }
   }
 
@@ -139,7 +147,37 @@ class NotificationService {
     // 2. Mobile Dispatch
     const targetPhone = phone || (!normalizedTarget.includes('@') ? normalizedTarget : undefined);
     if (targetPhone) {
-      if (process.env.FAST2SMS_API_KEY && targetPhone.length >= 10) {
+      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+        try {
+          const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+          const cleanPhone = targetPhone.startsWith('+') ? targetPhone : `+91${targetPhone.replace(/\D/g, '').slice(-10)}`;
+          const formData = new URLSearchParams();
+          formData.append('To', cleanPhone);
+          formData.append('From', process.env.TWILIO_PHONE_NUMBER);
+          formData.append('Body', `🏥 [CHIKITSA-X] Your healthcare access OTP is ${code}. Valid for 5 minutes. Never share this with anyone.`);
+
+          const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${auth}`,
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: formData.toString()
+          });
+
+          if (twilioRes.ok) {
+            smsDeliveryStatus = `SMS_SENT_TO_${cleanPhone}`;
+            console.log(`✅ [TWILIO SMS DELIVERED] Real SMS sent to ${cleanPhone}`);
+          } else {
+            const errText = await twilioRes.text();
+            console.warn(`⚠️ [TWILIO ERROR]:`, errText);
+            smsDeliveryStatus = 'FAILED_TWILIO_GATEWAY';
+          }
+        } catch (twErr) {
+          console.error('❌ [TWILIO ERROR] Failed to send SMS:', twErr);
+          smsDeliveryStatus = 'FAILED_TWILIO_FALLBACK';
+        }
+      } else if (process.env.FAST2SMS_API_KEY && targetPhone.length >= 10) {
         try {
           const cleanPhone = targetPhone.replace(/\D/g, '').slice(-10);
           const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
@@ -156,7 +194,7 @@ class NotificationService {
           });
           if (response.ok) {
             smsDeliveryStatus = `SMS_SENT_TO_${cleanPhone}`;
-            console.log(`✅ [SMS DELIVERED] Real SMS sent to ${cleanPhone}`);
+            console.log(`✅ [FAST2SMS DELIVERED] Real SMS sent to ${cleanPhone}`);
           } else {
             smsDeliveryStatus = 'FAILED_SMS_GATEWAY';
           }

@@ -1107,27 +1107,7 @@ class ChikitsaDatabase {
   ];
 
   // In-memory active CSR applications
-  private csrApplications: CSRApplication[] = [
-    {
-      id: 'CSR-APP-001',
-      referenceNo: 'CSR-2026-TATA-9102',
-      patientName: 'Ankit Patel',
-      patientAbha: '14-2026-9812-4401',
-      corporateId: 'CSR-TATA-01',
-      corporateName: 'Tata Trusts Medical Relief',
-      treatmentName: 'Coronary Angioplasty with Drug-Eluting Stents',
-      hospitalName: 'CarePlus Tertiary Heart Hospital',
-      totalHospitalBill: 220000,
-      pmjayOrInsuranceCover: 160000,
-      requestedCSRAmount: 60000,
-      sanctionedAmount: 60000,
-      status: 'CSR_APPROVED',
-      submissionDate: '2026-02-28',
-      sanctionDate: '2026-03-01',
-      utrNumber: 'UTR-HDFC-9912048129',
-      corporateReviewNotes: 'Pre-auth approved under Section 135 CSR Healthcare Corpus. Direct disbursement sanctioned to hospital billing desk.'
-    }
-  ];
+  private csrApplications: CSRApplication[] = [];
 
   getCSRPrograms(): CSRCareProgram[] {
     return [...this.csrPrograms];
