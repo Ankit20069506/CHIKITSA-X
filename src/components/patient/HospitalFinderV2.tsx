@@ -64,11 +64,11 @@ export const HospitalFinderV2: React.FC<Props> = ({
   const [locationError, setLocationError] = useState<string>('');
   const [showPresetDropdown, setShowPresetDropdown] = useState<boolean>(false);
 
-  // Triad criteria priority state
-  const [triadPriority, setTriadPriority] = useState<TriadPriority>('BALANCED');
-  const [locationWeight, setLocationWeight] = useState<number>(33);
-  const [costWeight, setCostWeight] = useState<number>(33);
-  const [careWeight, setCareWeight] = useState<number>(34);
+  // Triad criteria priority state - default to NEARBY_LOCATION for direct proximity recommendations
+  const [triadPriority, setTriadPriority] = useState<TriadPriority>('NEARBY_LOCATION');
+  const [locationWeight, setLocationWeight] = useState<number>(70);
+  const [costWeight, setCostWeight] = useState<number>(15);
+  const [careWeight, setCareWeight] = useState<number>(15);
   const [showWeightSliders, setShowWeightSliders] = useState<boolean>(false);
 
   // Request browser GPS location

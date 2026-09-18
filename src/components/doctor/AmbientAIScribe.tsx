@@ -43,7 +43,7 @@ export const AmbientAIScribe: React.FC<Props> = ({ language, onClose, onNoteSave
     const saved = db.saveSOAPNote({
       patientId: 'USR-PAT-2026-01',
       doctorName: 'Dr. Rajesh Kulkarni, MD, DM (Cardiology)',
-      hospitalName: 'CarePlus Tertiary Heart Hospital',
+      hospitalName: 'Sassoon General Hospital & Medical College, Pune',
       date: new Date().toISOString().split('T')[0],
       subjective,
       objective,

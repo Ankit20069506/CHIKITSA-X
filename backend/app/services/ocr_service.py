@@ -24,7 +24,7 @@ class OCRService:
                 "allergiesExtracted": ["Penicillin"],
                 "diagnosisExtracted": "Cardiovascular Risk Evaluation & Hypertension Control",
                 "doctorName": "Dr. Rajesh Kulkarni",
-                "hospitalName": "CarePlus Super Specialty Hospital",
+                "hospitalName": "Sassoon General Hospital & B.J. Medical College",
                 "ocrAdapterStatus": "development_mock_adapter"
             }
         elif "lab" in category_lower or "report" in category_lower or "blood" in file_name_lower:
@@ -38,7 +38,7 @@ class OCRService:
                 "medicinesExtracted": ["Metformin 500mg BD"],
                 "diagnosisExtracted": "Glycemic & Renal Function Monitoring Report",
                 "doctorName": "Dr. Ananya Roy",
-                "hospitalName": "CarePlus Diagnostic Center",
+                "hospitalName": "Sassoon Diagnostic & Pathology Center, Pune",
                 "ocrAdapterStatus": "development_mock_adapter"
             }
         else:

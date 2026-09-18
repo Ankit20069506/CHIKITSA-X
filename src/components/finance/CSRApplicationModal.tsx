@@ -38,7 +38,7 @@ export const CSRApplicationModal: React.FC<Props> = ({
     selectedProgram?.id || csrPrograms[0].id
   );
   const [hospitalName, setHospitalName] = useState<string>(
-    hospitals[0]?.name || 'CarePlus Tertiary Heart Hospital'
+    hospitals[0]?.name || 'Sassoon General Hospital & B.J. Medical College, Pune'
   );
   const [treatmentName, setTreatmentName] = useState<string>(
     'Pediatric Ventricular Septal Defect (VSD) Closure'

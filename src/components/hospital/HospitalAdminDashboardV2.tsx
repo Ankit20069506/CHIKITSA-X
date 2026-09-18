@@ -68,7 +68,7 @@ export const HospitalAdminDashboardV2: React.FC<Props> = ({ language }) => {
               <span className="badge badge-orange">COMMAND CENTER</span>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
-              CarePlus Tertiary Heart Hospital • Reception, Bed Telemetry & PM-JAY Helpdesk
+              Sassoon General Hospital & Medical College, Pune • Reception, Bed Telemetry & PM-JAY Helpdesk
             </p>
           </div>
         </div>

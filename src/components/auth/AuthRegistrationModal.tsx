@@ -61,7 +61,7 @@ export const AuthRegistrationModal: React.FC<Props> = ({
     specialty: 'Cardiology',
     qualifications: 'MBBS, MD (Medicine)',
     experienceYears: 8,
-    hospitalAffiliation: 'CarePlus Multi-Specialty Hospital',
+    hospitalAffiliation: 'Sassoon General Hospital & B.J. Medical College, Pune',
     verificationMethod: 'NMC_REGISTRY_OTP'
   });
 
@@ -918,7 +918,7 @@ export const AuthRegistrationModal: React.FC<Props> = ({
                       type="text"
                       value={doctorForm.hospitalAffiliation}
                       onChange={e => setDoctorForm({ ...doctorForm, hospitalAffiliation: e.target.value })}
-                      placeholder="e.g. CarePlus Tertiary Heart Hospital"
+                      placeholder="e.g. Sassoon General Hospital / Ruby Hall Clinic, Pune"
                       style={{
                         width: '100%',
                         padding: '10px 12px',

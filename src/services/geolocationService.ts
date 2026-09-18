@@ -22,11 +22,15 @@ export interface PresetLocation {
 
 export const PRESET_LOCATIONS: PresetLocation[] = [
   { id: 'pune-baner', label: 'Baner / Aundh, Pune', city: 'Pune', lat: 18.5582, lng: 73.7806 },
+  { id: 'pune-station', label: 'Pune Station / Sassoon Hospital, Pune', city: 'Pune', lat: 18.5273, lng: 73.8732 },
   { id: 'pune-shivajinagar', label: 'Shivajinagar / Central Pune', city: 'Pune', lat: 18.5314, lng: 73.8446 },
+  { id: 'pune-kothrud', label: 'Kothrud / Erandwane (Deenanath), Pune', city: 'Pune', lat: 18.5020, lng: 73.8315 },
   { id: 'pune-hadapsar', label: 'Hadapsar / Magarpatta, Pune', city: 'Pune', lat: 18.5089, lng: 73.9260 },
-  { id: 'pune-kothrud', label: 'Kothrud / Deccan, Pune', city: 'Pune', lat: 18.5074, lng: 73.8077 },
-  { id: 'mumbai-dadar', label: 'Dadar / Central Mumbai', city: 'Mumbai', lat: 19.0178, lng: 72.8478 },
+  { id: 'mumbai-parel', label: 'Parel (KEM & Tata Memorial), Mumbai', city: 'Mumbai', lat: 19.0028, lng: 72.8427 },
+  { id: 'mumbai-bandra', label: 'Bandra West (Lilavati Hospital), Mumbai', city: 'Mumbai', lat: 19.0514, lng: 72.8295 },
+  { id: 'mumbai-byculla', label: 'Byculla (Sir J.J. Hospital), Mumbai', city: 'Mumbai', lat: 18.9634, lng: 72.8335 },
   { id: 'mumbai-andheri', label: 'Andheri West, Mumbai', city: 'Mumbai', lat: 19.1197, lng: 72.8464 },
+  { id: 'nagpur-mihan', label: 'MIHAN / AIIMS, Nagpur', city: 'Nagpur', lat: 21.0664, lng: 79.0375 },
   { id: 'delhi-aiims', label: 'Ansari Nagar, New Delhi', city: 'Delhi', lat: 28.5672, lng: 77.2100 },
   { id: 'bengaluru-indiranagar', label: 'Indiranagar, Bengaluru', city: 'Bengaluru', lat: 12.9784, lng: 77.6408 }
 ];

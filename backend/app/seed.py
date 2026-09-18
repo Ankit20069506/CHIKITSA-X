@@ -42,7 +42,7 @@ def seed_database(db: Session):
         UserModel(
             id="usr-hospital-1",
             email="hospital@chikitsax.demo",
-            name="CarePlus Hospital Admin",
+            name="Sassoon Hospital Admin",
             role="HOSPITAL_ADMIN",
             phone="+91 020 6789 0000",
             hospital_id="hosp-1",
@@ -85,7 +85,7 @@ def seed_database(db: Session):
     hospitals = [
         HospitalModel(
             id="hosp-1",
-            name="CarePlus Super Specialty Hospital",
+            name="Sassoon General Hospital & B.J. Medical College",
             code="CPH-PUNE",
             tagline="Excellence in Cardiology & Tertiary Emergency Care",
             address="Plot 14, Senapati Bapat Road, Shivajinagar",
@@ -184,7 +184,7 @@ def seed_database(db: Session):
         DoctorModel(
             id="doc-1",
             hospital_id="hosp-1",
-            hospital_name="CarePlus Super Specialty Hospital",
+            hospital_name="Sassoon General Hospital & B.J. Medical College",
             name="Dr. Rajesh Kulkarni",
             specialty="Senior Interventional Cardiologist",
             qualification="MBBS, MD (Med), DM (Cardiology), FACC",
@@ -198,7 +198,7 @@ def seed_database(db: Session):
         DoctorModel(
             id="doc-2",
             hospital_id="hosp-1",
-            hospital_name="CarePlus Super Specialty Hospital",
+            hospital_name="Sassoon General Hospital & B.J. Medical College",
             name="Dr. Ananya Roy",
             specialty="Consultant Physician & Diabetologist",
             qualification="MBBS, MD (Internal Medicine)",
@@ -220,7 +220,7 @@ def seed_database(db: Session):
         patient_name="Ramesh Sharma",
         patient_phone="+91 98765 43210",
         hospital_id="hosp-1",
-        hospital_name="CarePlus Super Specialty Hospital",
+        hospital_name="Sassoon General Hospital & B.J. Medical College",
         department="Cardiology",
         doctor_id="doc-1",
         doctor_name="Dr. Rajesh Kulkarni",

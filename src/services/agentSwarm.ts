@@ -30,7 +30,7 @@ class AgentSwarmEngine {
       metricsProcessedCount: 218,
       lastLogMessage: 'ICU Occupancy at 78.1%. 7 ICU beds available.',
       recentLogs: [
-        { timestamp: '09:00:12', level: 'INFO', message: 'Telemetry ping verified from CarePlus ICU Ward.' },
+        { timestamp: '09:00:12', level: 'INFO', message: 'Telemetry ping verified from Sassoon Trauma ICU Ward.' },
         { timestamp: '09:00:22', level: 'SUCCESS', message: 'Ventilator 4 released from post-op recovery.' }
       ]
     },
