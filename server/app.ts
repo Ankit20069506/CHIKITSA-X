@@ -8,6 +8,7 @@ import {
   requestSanitizer
 } from './middleware/securityMiddleware';
 import { notificationService } from './services/notificationService';
+import { upHospitals } from './data/upHospitals';
 import { initPostgres, isPostgresConnected, pgUsers, pgDoctors, pgAppointments, pgAudit } from './db/postgres';
 import {
   encryptPHI,
@@ -84,6 +85,7 @@ interface MockDatabaseState {
 
 const dbState: MockDatabaseState = {
   hospitals: [
+    ...upHospitals,
     {
       id: 'HOSP-MH-01',
       name: 'Sassoon General Hospital & B.J. Government Medical College',

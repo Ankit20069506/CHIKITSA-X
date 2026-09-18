@@ -1,5 +1,6 @@
 import { initPostgres, getPostgresPool, pgAudit } from './postgres';
 import { computeAuditHash } from '../security';
+import { upHospitals } from '../data/upHospitals';
 
 async function seed() {
   console.log('🌱 Starting PostgreSQL Seeding for CHIKITSA-X...');
@@ -127,14 +128,32 @@ async function seed() {
       }
     ];
 
-    for (const h of hospitals) {
+    const upHospFormatted = upHospitals.map(h => ({
+      id: h.id,
+      name: h.name,
+      city: h.city,
+      state: h.state,
+      type: h.type,
+      rating: h.rating,
+      care_score: h.chikitsaCareScore,
+      emergency_24x7: h.emergency24x7,
+      contact_number: h.contactNumber,
+      latitude: h.mapsCoord.lat,
+      longitude: h.mapsCoord.lng,
+      accepted_schemes: h.acceptedGovSchemes,
+      opd_departments: h.opdDepartments
+    }));
+
+    const allHospitals = [...hospitals, ...upHospFormatted];
+
+    for (const h of allHospitals) {
       await pool.query(`
         INSERT INTO hospitals (id, name, city, state, type, rating, chikitsa_care_score, emergency_24x7, contact_number, latitude, longitude, accepted_schemes, opd_departments)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         ON CONFLICT (id) DO NOTHING;
       `, [h.id, h.name, h.city, h.state, h.type, h.rating, h.care_score, h.emergency_24x7, h.contact_number, h.latitude, h.longitude, h.accepted_schemes, h.opd_departments]);
     }
-    console.log(`✅ ${hospitals.length} empaneled hospitals seeded in PostgreSQL.`);
+    console.log(`✅ ${allHospitals.length} empaneled hospitals (including Uttar Pradesh) seeded in PostgreSQL.`);
 
     // 3. Seed Verified Doctors
     const doctors = [

@@ -23,6 +23,7 @@ import type {
   CSRCareProgram,
   CSRApplication
 } from '../types';
+import { upHospitals } from '../data/upHospitals';
 
 class ChikitsaDatabase {
   private currentUser: User = {
@@ -144,6 +145,7 @@ class ChikitsaDatabase {
   ];
 
   private hospitals: Hospital[] = [
+    ...upHospitals,
     {
       id: 'HOSP-MH-01',
       name: 'Sassoon General Hospital & B.J. Government Medical College',

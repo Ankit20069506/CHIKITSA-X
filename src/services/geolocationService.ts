@@ -21,18 +21,25 @@ export interface PresetLocation {
 }
 
 export const PRESET_LOCATIONS: PresetLocation[] = [
+  // Uttar Pradesh Premier Medical Hubs
+  { id: 'up-lucknow-sgpgi', label: 'Hazratganj / SGPGIMS & KGMU, Lucknow (UP)', city: 'Lucknow', lat: 26.8467, lng: 80.9462 },
+  { id: 'up-varanasi-bhu', label: 'Lanka / IMS-BHU & Apex, Varanasi (UP)', city: 'Varanasi', lat: 25.2820, lng: 82.9980 },
+  { id: 'up-kanpur-gsvm', label: 'Swaroop Nagar / GSVM & Regency, Kanpur (UP)', city: 'Kanpur', lat: 26.4810, lng: 80.3040 },
+  { id: 'up-prayagraj-srn', label: 'Civil Lines / SRN Hospital & MLN, Prayagraj (UP)', city: 'Prayagraj', lat: 25.4520, lng: 81.8540 },
+  { id: 'up-noida-sec62', label: 'Sector 62 / Fortis & Sector 39 Govt, Noida (UP)', city: 'Noida', lat: 28.6186, lng: 77.3725 },
+  { id: 'up-agra-snmc', label: 'Delhi Gate / SNMC & Pushpanjali, Agra (UP)', city: 'Agra', lat: 27.1820, lng: 78.0060 },
+  { id: 'up-gorakhpur-aiims', label: 'AIIMS & BRD Medical College, Gorakhpur (UP)', city: 'Gorakhpur', lat: 26.7588, lng: 83.4331 },
+  { id: 'up-bareilly-srms', label: 'Civil Lines / SRMS Medical College, Bareilly (UP)', city: 'Bareilly', lat: 28.4550, lng: 79.4420 },
+  { id: 'up-meerut-anand', label: 'Garh Road / Anand & Vardhman, Meerut (UP)', city: 'Meerut', lat: 28.9840, lng: 77.7060 },
+  // Maharashtra & Other Metros
   { id: 'pune-baner', label: 'Baner / Aundh, Pune', city: 'Pune', lat: 18.5582, lng: 73.7806 },
   { id: 'pune-station', label: 'Pune Station / Sassoon Hospital, Pune', city: 'Pune', lat: 18.5273, lng: 73.8732 },
   { id: 'pune-shivajinagar', label: 'Shivajinagar / Central Pune', city: 'Pune', lat: 18.5314, lng: 73.8446 },
   { id: 'pune-kothrud', label: 'Kothrud / Erandwane (Deenanath), Pune', city: 'Pune', lat: 18.5020, lng: 73.8315 },
-  { id: 'pune-hadapsar', label: 'Hadapsar / Magarpatta, Pune', city: 'Pune', lat: 18.5089, lng: 73.9260 },
   { id: 'mumbai-parel', label: 'Parel (KEM & Tata Memorial), Mumbai', city: 'Mumbai', lat: 19.0028, lng: 72.8427 },
   { id: 'mumbai-bandra', label: 'Bandra West (Lilavati Hospital), Mumbai', city: 'Mumbai', lat: 19.0514, lng: 72.8295 },
   { id: 'mumbai-byculla', label: 'Byculla (Sir J.J. Hospital), Mumbai', city: 'Mumbai', lat: 18.9634, lng: 72.8335 },
-  { id: 'mumbai-andheri', label: 'Andheri West, Mumbai', city: 'Mumbai', lat: 19.1197, lng: 72.8464 },
-  { id: 'nagpur-mihan', label: 'MIHAN / AIIMS, Nagpur', city: 'Nagpur', lat: 21.0664, lng: 79.0375 },
-  { id: 'delhi-aiims', label: 'Ansari Nagar, New Delhi', city: 'Delhi', lat: 28.5672, lng: 77.2100 },
-  { id: 'bengaluru-indiranagar', label: 'Indiranagar, Bengaluru', city: 'Bengaluru', lat: 12.9784, lng: 77.6408 }
+  { id: 'delhi-aiims', label: 'Ansari Nagar, New Delhi', city: 'Delhi', lat: 28.5672, lng: 77.2100 }
 ];
 
 export const DEFAULT_PATIENT_LOCATION: PatientCoordinates = {

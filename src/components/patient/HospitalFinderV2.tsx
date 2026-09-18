@@ -51,6 +51,7 @@ export const HospitalFinderV2: React.FC<Props> = ({
 }) => {
   const [hospitals] = useState<Hospital[]>(() => db.getHospitals());
   const [schemeFilter, setSchemeFilter] = useState<string>('ALL');
+  const [stateFilter, setStateFilter] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'MAP' | 'LIST'>('LIST');
   const [showScoreModal, setShowScoreModal] = useState<Hospital | null>(null);
   const [internalAmbulanceHospital, setInternalAmbulanceHospital] = useState<Hospital | null>(null);
@@ -172,6 +173,9 @@ export const HospitalFinderV2: React.FC<Props> = ({
   // Filter & Sort based on active Triad Priority
   const filteredAndSortedHospitals = useMemo(() => {
     const filtered = scoredHospitals.filter(h => {
+      if (stateFilter !== 'ALL' && h.state.toLowerCase() !== stateFilter.toLowerCase()) {
+        return false;
+      }
       if (schemeFilter === 'ALL') return true;
       return h.acceptedGovSchemes.some(s => s.toLowerCase().includes(schemeFilter.toLowerCase()));
     });
@@ -604,17 +608,38 @@ export const HospitalFinderV2: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Gov Schemes Filter Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-          Showing <strong>{filteredAndSortedHospitals.length}</strong> facilities sorted by{' '}
-          <strong style={{ color: '#0284c7' }}>
-            {triadPriority === 'BALANCED' ? 'Triad Match Score' : triadPriority === 'NEARBY_LOCATION' ? 'Distance (Closest)' : triadPriority === 'LOWEST_COST' ? 'Cost (Lowest)' : 'Care Score'}
-          </strong>
+      {/* State & Gov Schemes Filter Row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', marginRight: '2px' }}>
+            {language === 'HI' ? 'राज्य चुनें:' : 'State:'}
+          </span>
+          {[
+            { id: 'ALL', label: language === 'HI' ? 'सभी राज्य' : 'All States', count: scoredHospitals.length },
+            { id: 'Uttar Pradesh', label: '🇮🇳 Uttar Pradesh (उत्तर प्रदेश)', count: scoredHospitals.filter(h => h.state === 'Uttar Pradesh').length },
+            { id: 'Maharashtra', label: 'Maharashtra (महाराष्ट्र)', count: scoredHospitals.filter(h => h.state === 'Maharashtra').length }
+          ].map(st => (
+            <button
+              key={st.id}
+              onClick={() => setStateFilter(st.id)}
+              className={stateFilter === st.id ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+              style={{
+                fontSize: '0.75rem',
+                padding: '4px 10px',
+                fontWeight: stateFilter === st.id ? 700 : 500,
+                borderRadius: '6px'
+              }}
+            >
+              {st.label} ({st.count})
+            </button>
+          ))}
         </div>
 
-        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-          {['ALL', 'PM-JAY', 'MJPJAY', 'Tata Trusts'].map(scheme => (
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginRight: '2px' }}>
+            {language === 'HI' ? 'योजना:' : 'Scheme:'}
+          </span>
+          {['ALL', 'PM-JAY', 'Mukhyamantri', 'MJPJAY', 'Tata Trusts'].map(scheme => (
             <button
               key={scheme}
               onClick={() => setSchemeFilter(scheme)}
@@ -625,6 +650,13 @@ export const HospitalFinderV2: React.FC<Props> = ({
             </button>
           ))}
         </div>
+      </div>
+
+      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
+        Showing <strong>{filteredAndSortedHospitals.length}</strong> facilities sorted by{' '}
+        <strong style={{ color: '#0284c7' }}>
+          {triadPriority === 'BALANCED' ? 'Triad Match Score' : triadPriority === 'NEARBY_LOCATION' ? 'Distance (Closest)' : triadPriority === 'LOWEST_COST' ? 'Cost (Lowest)' : 'Care Score'}
+        </strong>
       </div>
 
       {/* Main View: Geospatial Map or Triad Ranking Grid */}
